@@ -49,9 +49,23 @@ body {
   color: #f8fafc;
   outline: none;
   transition: all 0.2s ease;
+  width: 100%;
 }
 
-.glass-input:focus {
+/* Variante para inputs con prefijo izquierdo (Bs., $, etc.) */
+.glass-input-prefix {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem 0.75rem 3rem;
+  color: #f8fafc;
+  outline: none;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.glass-input:focus,
+.glass-input-prefix:focus {
   border-color: var(--primary-green);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
@@ -131,6 +145,24 @@ body {
 
 .pulse-badge {
   animation: pulse-ring 2s infinite ease-in-out;
+}
+
+@keyframes toast-in {
+  0%   { opacity: 0; transform: translateY(24px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toast-out {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(16px) scale(0.96); }
+}
+
+.toast-enter {
+  animation: toast-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.toast-exit {
+  animation: toast-out 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes shimmer {

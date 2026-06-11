@@ -8,12 +8,41 @@ import { createClient } from "@/utils/supabase/server";
 export type ActionResponse = {
   success: boolean;
   error?: string;
-  data?: any;
+  data?: unknown;
 };
 
 /**
- * Crea un nuevo grupo de apuestas
+ * Determina el resultado de una apuesta dado el marcador real.
+ *
+ * Sistema de puntos:
+ *   3 pts → Acierto exacto (marcador exacto) o resultado correcto (ganador/empate)
+ *   1 pt  → Predicción incorrecta (consolación)
+ *
+ * Para el pool de premios:
+ *   "winner" → predijo correctamente ganador o empate (pts = 3)
+ *   "loser"  → predicción incorrecta (pts = 1)
  */
+function evaluatePrediction(
+  predA: number,
+  predB: number,
+  actualA: number,
+  actualB: number
+): { points: 3 | 1; status: "exact" | "winner" | "loser" } {
+  const actualOutcome = Math.sign(actualA - actualB); // 1, -1, 0
+  const predOutcome = Math.sign(predA - predB);
+
+  if (predA === actualA && predB === actualB) {
+    return { points: 3, status: "exact" };
+  }
+  if (predOutcome === actualOutcome) {
+    return { points: 3, status: "winner" };
+  }
+  return { points: 1, status: "loser" };
+}
+
+// ---------------------------------------------------------------------------
+// createGroup
+// ---------------------------------------------------------------------------
 export async function createGroup(name: string, code: string): Promise<ActionResponse> {
   if (!name.trim() || !code.trim()) {
     return { success: false, error: "El nombre y el código secreto son requeridos." };
@@ -23,7 +52,6 @@ export async function createGroup(name: string, code: string): Promise<ActionRes
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // Verificar si el código ya existe
   const { data: existingGroup } = await supabase
     .from("groups")
     .select("id")
@@ -34,7 +62,6 @@ export async function createGroup(name: string, code: string): Promise<ActionRes
     return { success: false, error: "Este código secreto ya está en uso. Por favor elige otro." };
   }
 
-  // Insertar el nuevo grupo
   const { data: newGroup, error } = await supabase
     .from("groups")
     .insert([{ name: name.trim(), code: cleanCode }])
@@ -45,19 +72,17 @@ export async function createGroup(name: string, code: string): Promise<ActionRes
     return { success: false, error: "Error al crear el grupo en la base de datos." };
   }
 
-  // Guardar acceso en cookies (expira en 7 días)
   cookieStore.set(`group_session_${newGroup.id}`, "true", {
     maxAge: 60 * 60 * 24 * 7,
     path: "/",
   });
 
-  // Redirigir al panel del grupo
   redirect(`/grupo/${newGroup.id}`);
 }
 
-/**
- * Ingresar a un grupo existente mediante su código secreto
- */
+// ---------------------------------------------------------------------------
+// joinGroup
+// ---------------------------------------------------------------------------
 export async function joinGroup(code: string): Promise<ActionResponse> {
   if (!code.trim()) {
     return { success: false, error: "Debes ingresar un código secreto." };
@@ -77,28 +102,26 @@ export async function joinGroup(code: string): Promise<ActionResponse> {
     return { success: false, error: "No se encontró ningún grupo con ese código secreto." };
   }
 
-  // Guardar acceso en cookies (expira en 7 días)
   cookieStore.set(`group_session_${group.id}`, "true", {
     maxAge: 60 * 60 * 24 * 7,
     path: "/",
   });
 
-  // Redirigir al panel del grupo
   redirect(`/grupo/${group.id}`);
 }
 
-/**
- * Salir del grupo actual (borrar cookie de sesión)
- */
+// ---------------------------------------------------------------------------
+// leaveGroup
+// ---------------------------------------------------------------------------
 export async function leaveGroup(groupId: string) {
   const cookieStore = await cookies();
   cookieStore.delete(`group_session_${groupId}`);
   redirect("/");
 }
 
-/**
- * Registrar una apuesta dentro de un grupo
- */
+// ---------------------------------------------------------------------------
+// placeBet
+// ---------------------------------------------------------------------------
 export async function placeBet(
   groupId: string,
   matchId: string,
@@ -120,10 +143,20 @@ export async function placeBet(
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // Validar si el usuario está autorizado para este grupo
   const session = cookieStore.get(`group_session_${groupId}`);
   if (!session || session.value !== "true") {
     return { success: false, error: "No autorizado para este grupo." };
+  }
+
+  // Verificar que el partido no esté finalizado
+  const { data: match } = await supabase
+    .from("matches")
+    .select("status")
+    .eq("id", matchId)
+    .single();
+
+  if (match?.status === "finished") {
+    return { success: false, error: "No puedes apostar en un partido que ya terminó." };
   }
 
   const { error } = await supabase.from("bets").insert([
@@ -133,7 +166,10 @@ export async function placeBet(
       participant_name: participantName.trim(),
       predicted_score_a: predScoreA,
       predicted_score_b: predScoreB,
-      amount: amount,
+      amount,
+      points_won: 0,
+      prize_won: 0,
+      result_status: "pending",
     },
   ]);
 
@@ -145,9 +181,16 @@ export async function placeBet(
   return { success: true };
 }
 
-/**
- * Simular o actualizar el resultado de un partido (Uso administrativo / Simulación)
- */
+// ---------------------------------------------------------------------------
+// updateMatchScore
+// Core business logic: distribución dinámica del pozo con rollover
+//
+// Reglas:
+//   1. Ganadores (pts=3) se reparten el pozo total del partido (apuestas + rollover)
+//   2. Perdedores (pts=1) no reciben nada del pozo
+//   3. Si nadie gana (0 ganadores) → todo el pozo se acumula en el SIGUIENTE partido
+//      sin finalizar como rollover_pool
+// ---------------------------------------------------------------------------
 export async function updateMatchScore(
   groupId: string,
   matchId: string,
@@ -158,79 +201,162 @@ export async function updateMatchScore(
   const supabase = createClient(cookieStore);
 
   const isFinished = scoreA !== null && scoreB !== null;
-  const updateData = {
-    score_a: scoreA,
-    score_b: scoreB,
-    status: isFinished ? "finished" : "scheduled",
-  };
 
-  // 1. Actualizar el partido
+  // --- Reinicio de un partido ya evaluado ---
+  if (!isFinished) {
+    // Resetear apuestas y quitar distribución
+    const { data: matchData } = await supabase
+      .from("matches")
+      .select("rollover_pool")
+      .eq("id", matchId)
+      .single();
+
+    await supabase
+      .from("matches")
+      .update({ score_a: null, score_b: null, status: "scheduled", prize_distributed: false })
+      .eq("id", matchId);
+
+    // Resetear apuestas de este partido
+    await supabase
+      .from("bets")
+      .update({ points_won: 0, prize_won: 0, result_status: "pending" })
+      .eq("match_id", matchId);
+
+    revalidatePath(`/grupo/${groupId}`);
+    return { success: true };
+  }
+
+  // --- Actualizar marcador ---
   const { error: matchError } = await supabase
     .from("matches")
-    .update(updateData)
+    .update({
+      score_a: scoreA,
+      score_b: scoreB,
+      status: "finished",
+      prize_distributed: false,
+    })
     .eq("id", matchId);
 
   if (matchError) {
     return { success: false, error: `Error al actualizar el partido: ${matchError.message}` };
   }
 
-  // 2. Obtener todas las apuestas para este partido para reevaluarlas
+  // --- Obtener match con rollover acumulado ---
+  const { data: matchFull } = await supabase
+    .from("matches")
+    .select("rollover_pool")
+    .eq("id", matchId)
+    .single();
+
+  const accumulatedRollover = Number(matchFull?.rollover_pool ?? 0);
+
+  // --- Obtener apuestas de este partido en este grupo ---
   const { data: bets, error: betsError } = await supabase
     .from("bets")
-    .select("id, predicted_score_a, predicted_score_b")
-    .eq("match_id", matchId);
+    .select("id, predicted_score_a, predicted_score_b, amount, participant_name")
+    .eq("match_id", matchId)
+    .eq("group_id", groupId);
 
   if (betsError) {
-    return { success: false, error: `Error al obtener las apuestas para evaluar: ${betsError.message}` };
+    return { success: false, error: `Error al obtener las apuestas: ${betsError.message}` };
   }
 
-  // 3. Calcular puntos y actualizar en lote (upsert)
-  if (bets && bets.length > 0) {
-    const upsertData = bets.map((bet) => {
-      if (!isFinished) {
-        return {
-          id: bet.id,
-          points_won: 0,
-          result_status: "pending",
-        };
-      }
+  if (!bets || bets.length === 0) {
+    revalidatePath(`/grupo/${groupId}`);
+    return { success: true };
+  }
 
-      const actA = scoreA!;
-      const actB = scoreB!;
-      const predA = bet.predicted_score_a;
-      const predB = bet.predicted_score_b;
+  // --- Evaluar cada apuesta ---
+  type BetResult = {
+    id: string;
+    points_won: number;
+    result_status: "exact" | "winner" | "loser" | "pending";
+    prize_won: number;
+    amount: number;
+  };
 
-      let pts = 0;
-      let status: "exact" | "outcome" | "fail" = "fail";
+  const evaluated: BetResult[] = bets.map((bet) => {
+    const { points, status } = evaluatePrediction(
+      bet.predicted_score_a,
+      bet.predicted_score_b,
+      scoreA!,
+      scoreB!
+    );
+    return {
+      id: bet.id,
+      points_won: points,
+      result_status: status,
+      prize_won: 0,
+      amount: Number(bet.amount),
+    };
+  });
 
-      if (actA === predA && actB === predB) {
-        pts = 3;
-        status = "exact";
-      } else {
-        const actualDiff = actA - actB;
-        const predDiff = predA - predB;
-        const actualWinner = actualDiff > 0 ? 1 : actualDiff < 0 ? -1 : 0;
-        const predWinner = predDiff > 0 ? 1 : predDiff < 0 ? -1 : 0;
+  // --- Calcular pool total del partido ---
+  const matchPool = evaluated.reduce((acc, b) => acc + b.amount, 0);
+  const totalPool = matchPool + accumulatedRollover;
 
-        if (actualWinner === predWinner) {
-          pts = 1;
-          status = "outcome";
-        }
-      }
+  // --- Identificar ganadores (pts = 3) ---
+  const winners = evaluated.filter((b) => b.points_won === 3);
 
-      return {
-        id: bet.id,
-        points_won: pts,
-        result_status: status,
-      };
+  if (winners.length > 0) {
+    // Distribuir el pool entre los ganadores proporcionalmente a su monto apostado
+    const winnersPoolTotal = winners.reduce((acc, b) => acc + b.amount, 0);
+
+    winners.forEach((w) => {
+      const share = winnersPoolTotal > 0
+        ? (w.amount / winnersPoolTotal) * totalPool
+        : totalPool / winners.length;
+      w.prize_won = Math.round(share * 100) / 100;
     });
 
-    const { error: upsertError } = await supabase
-      .from("bets")
-      .upsert(upsertData);
+    // Marcar partido como distribuido
+    await supabase
+      .from("matches")
+      .update({ prize_distributed: true })
+      .eq("id", matchId);
 
-    if (upsertError) {
-      return { success: false, error: `Error al guardar los resultados de apuestas: ${upsertError.message}` };
+  } else {
+    // Sin ganadores → el pool se transfiere al próximo partido sin finalizar
+    // Obtener el siguiente partido por fecha
+    const { data: nextMatch } = await supabase
+      .from("matches")
+      .select("id, rollover_pool, kickoff_time")
+      .neq("id", matchId)
+      .eq("status", "scheduled")
+      .order("kickoff_time", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (nextMatch) {
+      const newRollover = Number(nextMatch.rollover_pool) + totalPool;
+      await supabase
+        .from("matches")
+        .update({ rollover_pool: newRollover })
+        .eq("id", nextMatch.id);
+    }
+
+    // Marcar como distribuido (aunque sea rollover)
+    await supabase
+      .from("matches")
+      .update({ prize_distributed: true })
+      .eq("id", matchId);
+  }
+
+  // --- Actualizar cada apuesta individualmente (update, no upsert) ---
+  // upsert intentaría INSERT si no hay match exacto, violando el constraint NOT NULL de group_id.
+  // update filtra por id existente, garantizando que solo se modifiquen filas existentes.
+  for (const bet of evaluated) {
+    const { error: updateErr } = await supabase
+      .from("bets")
+      .update({
+        points_won: bet.points_won,
+        result_status: bet.result_status,
+        prize_won: bet.prize_won,
+      })
+      .eq("id", bet.id);
+
+    if (updateErr) {
+      return { success: false, error: `Error al guardar resultados: ${updateErr.message}` };
     }
   }
 

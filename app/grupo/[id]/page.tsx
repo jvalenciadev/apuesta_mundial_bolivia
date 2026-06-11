@@ -33,7 +33,7 @@ export default async function GroupPage({ params }: PageProps) {
   // 3. Obtener partidos (e insertar por defecto si está vacío)
   let { data: matches, error: matchesError } = await supabase
     .from("matches")
-    .select("id, team_a, team_b, kickoff_time, score_a, score_b, status, group_stage")
+    .select("id, team_a, team_b, kickoff_time, score_a, score_b, status, group_stage, rollover_pool, prize_distributed")
     .order("kickoff_time", { ascending: true });
 
   if (matchesError) {
@@ -68,6 +68,7 @@ export default async function GroupPage({ params }: PageProps) {
       predicted_score_a,
       predicted_score_b,
       amount,
+      prize_won,
       created_at,
       match_id,
       points_won,
@@ -77,7 +78,8 @@ export default async function GroupPage({ params }: PageProps) {
         team_b,
         score_a,
         score_b,
-        status
+        status,
+        rollover_pool
       )
     `)
     .eq("group_id", groupId)
