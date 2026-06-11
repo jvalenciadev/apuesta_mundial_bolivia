@@ -124,7 +124,7 @@ export default function HomePage() {
                       value={createCode}
                       onChange={(e) => setCreateCode(e.target.value)}
                       disabled={isPendingCreate}
-                      className="glass-input pl-10 w-full text-sm"
+                      className="glass-input-prefix w-full text-sm"
                     />
                   </div>
                   <p className="text-[10px] text-slate-500">
@@ -186,7 +186,7 @@ export default function HomePage() {
                       value={joinCodeInput}
                       onChange={(e) => setJoinCodeInput(e.target.value)}
                       disabled={isPendingJoin}
-                      className="glass-input pl-10 w-full text-sm"
+                      className="glass-input-prefix w-full text-sm"
                     />
                   </div>
                 </div>

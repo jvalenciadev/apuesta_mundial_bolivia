@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import { placeBet, updateMatchScore, leaveGroup } from "../../actions";
 import { createClient } from "@/utils/supabase/client";
 import { getFlagSVG } from "@/utils/flags";
+import SimulatorPanel from "./SimulatorPanel";
 import {
   Trophy,
   Copy,
@@ -24,6 +25,7 @@ import {
   TrendingUp,
   ArrowRight,
   Star,
+  X,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -59,7 +61,8 @@ interface Bet {
   points_won: number;
   prize_won: number;
   result_status: "pending" | "exact" | "winner" | "loser";
-  matches: {
+  group_id?: string;
+  matches?: {
     team_a: string;
     team_b: string;
     score_a: number | null;
@@ -73,6 +76,63 @@ interface GroupDashboardProps {
   group: Group;
   initialMatches: Match[];
   initialBets: Bet[];
+}
+
+// ---------------------------------------------------------------------------
+// Componente de Badge de Estado y Cuenta Regresiva (Aislado para rendimiento)
+// ---------------------------------------------------------------------------
+function MatchStatusBadge({ match }: { match: Match }) {
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (!now) {
+    return (
+      <span className="px-2 py-0.5 rounded-full font-medium flex items-center gap-1 bg-slate-800 text-slate-400 text-xs">
+        <Clock className="w-3 h-3 shrink-0" />
+        --:--:--
+      </span>
+    );
+  }
+
+  const isLive =
+    match.status === "live" ||
+    (match.status === "scheduled" && new Date(match.kickoff_time) <= now);
+  const isFinished = match.status === "finished";
+
+  let badgeClass = "bg-emerald-500/10 text-emerald-400";
+  if (isFinished) {
+    badgeClass = "bg-slate-800 text-slate-400";
+  } else if (isLive) {
+    badgeClass = "bg-rose-500/20 text-rose-400 border border-rose-500/20 animate-pulse";
+  }
+
+  const getCountdownString = () => {
+    if (isFinished) return "Finalizado";
+    const kickoff = new Date(match.kickoff_time);
+    const diff = kickoff.getTime() - now.getTime();
+    if (diff <= 0) return "En Vivo";
+
+    const secs = Math.floor(diff / 1000);
+    const mins = Math.floor(secs / 60);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    return `${String(hours).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
+  };
+
+  return (
+    <span className={`px-2 py-0.5 rounded-full font-medium flex items-center gap-1 text-xs ${badgeClass}`}>
+      {isLive && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping shrink-0" />}
+      {!isLive && !isFinished && <Clock className="w-3 h-3 shrink-0 text-emerald-400" />}
+      {getCountdownString()}
+    </span>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -163,6 +223,9 @@ export default function GroupDashboardClient({
   );
 
   const [participantName, setParticipantName] = useState("");
+  const [hasSavedName, setHasSavedName] = useState(false);
+  const [nameSource, setNameSource] = useState<"select" | "custom">("select");
+
   const [predScoreA, setPredScoreA] = useState("0");
   const [predScoreB, setPredScoreB] = useState("0");
   const [betAmount, setBetAmount] = useState("10");
@@ -178,7 +241,38 @@ export default function GroupDashboardClient({
   const [isPendingSim, startSimTransition] = useTransition();
 
   const [copied, setCopied] = useState(false);
-  const [now, setNow] = useState(new Date());
+
+  // -----------------------------------------------------------------------
+  // Sincronización de props del Servidor (Server Actions / revalidatePath)
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    setMatches(initialMatches);
+  }, [initialMatches]);
+
+  useEffect(() => {
+    setBets(initialBets);
+  }, [initialBets]);
+
+  // Cargar apodo guardado al montar el componente
+  useEffect(() => {
+    const savedName = localStorage.getItem("polla_participant_name");
+    if (savedName) {
+      setParticipantName(savedName);
+      setHasSavedName(true);
+    }
+  }, []);
+
+  // Obtener participantes registrados en el grupo
+  const existingParticipants = Array.from(
+    new Set(bets.map((b) => b.participant_name.trim()))
+  ).sort();
+
+  // Cambiar a input manual por defecto si no hay participantes registrados aún
+  useEffect(() => {
+    if (existingParticipants.length === 0 && !hasSavedName) {
+      setNameSource("custom");
+    }
+  }, [existingParticipants.length, hasSavedName]);
 
   // -----------------------------------------------------------------------
   // Realtime subscriptions
@@ -186,27 +280,31 @@ export default function GroupDashboardClient({
   useEffect(() => {
     const supabase = createClient();
 
-    const savedName = localStorage.getItem("polla_participant_name");
-    if (savedName) setParticipantName(savedName);
-
     const matchesChannel = supabase
       .channel("realtime-matches")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "matches" },
-        async () => {
-          const { data: updatedMatches } = await supabase
-            .from("matches")
-            .select(
-              "id, team_a, team_b, kickoff_time, score_a, score_b, status, group_stage, rollover_pool, prize_distributed"
-            )
-            .order("kickoff_time", { ascending: true });
-          if (updatedMatches) {
-            setMatches(updatedMatches as Match[]);
-            if (selectedMatch) {
-              const cur = updatedMatches.find((m) => m.id === selectedMatch.id);
-              if (cur) setSelectedMatch(cur as Match);
-            }
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newMatch = payload.new as Match;
+            setMatches((prev) => {
+              const exists = prev.some((m) => m.id === newMatch.id);
+              if (exists) return prev;
+              return [...prev, newMatch].sort(
+                (a, b) => new Date(a.kickoff_time).getTime() - new Date(b.kickoff_time).getTime()
+              );
+            });
+          } else if (payload.eventType === "UPDATE") {
+            const updatedMatch = payload.new as Match;
+            setMatches((prev) =>
+              prev.map((m) => (m.id === updatedMatch.id ? updatedMatch : m))
+            );
+            setSelectedMatch((curr) => (curr?.id === updatedMatch.id ? updatedMatch : curr));
+          } else if (payload.eventType === "DELETE") {
+            const deletedId = payload.old.id;
+            setMatches((prev) => prev.filter((m) => m.id !== deletedId));
+            setSelectedMatch((curr) => (curr?.id === deletedId ? null : curr));
           }
         }
       )
@@ -217,51 +315,34 @@ export default function GroupDashboardClient({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "bets" },
-        async () => {
-          const { data: updatedBets } = await supabase
-            .from("bets")
-            .select(`
-              id,
-              participant_name,
-              predicted_score_a,
-              predicted_score_b,
-              amount,
-              prize_won,
-              created_at,
-              match_id,
-              points_won,
-              result_status,
-              matches (
-                team_a,
-                team_b,
-                score_a,
-                score_b,
-                status,
-                rollover_pool
-              )
-            `)
-            .eq("group_id", group.id)
-            .order("created_at", { ascending: false });
-
-          if (updatedBets) {
-            const mapped = updatedBets.map((b: any) => ({
-              ...b,
-              matches: Array.isArray(b.matches) ? b.matches[0] : b.matches ?? null,
-            })) as Bet[];
-            setBets(mapped);
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newBet = payload.new as Bet;
+            if (newBet.group_id === group.id) {
+              setBets((prev) => {
+                const exists = prev.some((b) => b.id === newBet.id);
+                if (exists) return prev;
+                return [newBet, ...prev];
+              });
+            }
+          } else if (payload.eventType === "UPDATE") {
+            const updatedBet = payload.new as Bet;
+            setBets((prev) =>
+              prev.map((b) => (b.id === updatedBet.id ? { ...b, ...updatedBet } : b))
+            );
+          } else if (payload.eventType === "DELETE") {
+            const deletedId = payload.old.id;
+            setBets((prev) => prev.filter((b) => b.id !== deletedId));
           }
         }
       )
       .subscribe();
 
-    const timer = setInterval(() => setNow(new Date()), 1000);
-
     return () => {
       supabase.removeChannel(matchesChannel);
       supabase.removeChannel(betsChannel);
-      clearInterval(timer);
     };
-  }, [group.id, selectedMatch]);
+  }, [group.id]);
 
   useEffect(() => {
     if (selectedMatch) {
@@ -310,11 +391,11 @@ export default function GroupDashboardClient({
       return;
     }
 
-    localStorage.setItem("polla_participant_name", participantName.trim());
-
     startBetTransition(async () => {
       const res = await placeBet(group.id, selectedMatch.id, participantName, pA, pB, amt);
       if (res.success) {
+        localStorage.setItem("polla_participant_name", participantName.trim());
+        setHasSavedName(true);
         setBetSuccess(true);
         setToastExiting(false);
         setPredScoreA("0");
@@ -354,20 +435,7 @@ export default function GroupDashboardClient({
     });
   };
 
-  const getCountdownString = (kickoffTimeStr: string, matchStatus: string) => {
-    if (matchStatus === "finished") return "Finalizado";
-    const kickoff = new Date(kickoffTimeStr);
-    const diff = kickoff.getTime() - now.getTime();
-    if (diff <= 0) return "En Vivo";
 
-    const secs = Math.floor(diff / 1000);
-    const mins = Math.floor(secs / 60);
-    const hours = Math.floor(mins / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days}d ${hours % 24}h`;
-    return `${String(hours).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
-  };
 
   // --- Derived stats ---
   const totalPool = bets.reduce((acc, b) => acc + (Number(b.amount) || 0), 0);
@@ -380,8 +448,17 @@ export default function GroupDashboardClient({
   const matchBetPool = matchBets.reduce((acc, b) => acc + (Number(b.amount) || 0), 0);
   const matchTotalPool = matchBetPool + (Number(selectedMatch?.rollover_pool) || 0);
 
-  // Rollover total acumulado en partidos futuros
-  const totalRollover = matches.reduce((acc, m) => acc + (Number(m.rollover_pool) || 0), 0);
+  // Detectar si el participante actual ya apostó en este partido
+  const alreadyBet = selectedMatch && participantName.trim()
+    ? matchBets.some(
+      (b) => b.participant_name.toLowerCase() === participantName.trim().toLowerCase()
+    )
+    : false;
+
+  // Rollover en juego (acumulado sólo en partidos pendientes de disputa)
+  const totalRollover = matches
+    .filter((m) => m.status === "scheduled")
+    .reduce((acc, m) => acc + (Number(m.rollover_pool) || 0), 0);
 
   // Premio total distribuido (suma de prize_won)
   const totalPrizeDistributed = bets.reduce((acc, b) => acc + (Number(b.prize_won) || 0), 0);
@@ -442,9 +519,8 @@ export default function GroupDashboardClient({
       {/* Toast flotante - éxito apuesta */}
       {betSuccess && (
         <div
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl bg-emerald-950/90 border border-emerald-500/40 shadow-[0_8px_32px_rgba(16,185,129,0.25)] backdrop-blur-md ${
-            toastExiting ? "toast-exit" : "toast-enter"
-          }`}
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl bg-emerald-950/90 border border-emerald-500/40 shadow-[0_8px_32px_rgba(16,185,129,0.25)] backdrop-blur-md ${toastExiting ? "toast-exit" : "toast-enter"
+            }`}
         >
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <div>
@@ -498,7 +574,7 @@ export default function GroupDashboardClient({
       </header>
 
       {/* Stats rápidas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 z-10">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 z-10">
         <div className="glass-panel p-4 flex items-center justify-between">
           <div>
             <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Pozo Total</p>
@@ -508,18 +584,6 @@ export default function GroupDashboardClient({
           </div>
           <span className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20 text-emerald-400">
             <Coins className="w-5 h-5" />
-          </span>
-        </div>
-
-        <div className="glass-panel p-4 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Rollover</p>
-            <h3 className="text-2xl font-black text-rose-400 mt-1">
-              {totalRollover.toFixed(0)} <span className="text-xs font-normal text-slate-400">Bs.</span>
-            </h3>
-          </div>
-          <span className="bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20 text-rose-400">
-            <ArrowRight className="w-5 h-5" />
           </span>
         </div>
 
@@ -559,11 +623,10 @@ export default function GroupDashboardClient({
         </div>
         <button
           onClick={() => setIsAdminMode(!isAdminMode)}
-          className={`px-4 py-2.5 rounded-lg text-xs font-bold transition border cursor-pointer ${
-            isAdminMode
-              ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
-              : "bg-slate-800 border-white/10 text-slate-400 hover:text-slate-200"
-          }`}
+          className={`px-4 py-2.5 rounded-lg text-xs font-bold transition border cursor-pointer ${isAdminMode
+            ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
+            : "bg-slate-800 border-white/10 text-slate-400 hover:text-slate-200"
+            }`}
         >
           {isAdminMode ? (
             "Desactivar"
@@ -593,31 +656,14 @@ export default function GroupDashboardClient({
                 <div
                   key={match.id}
                   onClick={() => setSelectedMatch(match)}
-                  className={`glass-panel p-4 cursor-pointer relative transition-all ${
-                    isSelected
-                      ? "border-emerald-500/50 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                      : "hover:border-white/15"
-                  }`}
+                  className={`glass-panel p-4 cursor-pointer relative transition-all ${isSelected
+                    ? "border-emerald-500/50 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                    : "hover:border-white/15"
+                    }`}
                 >
                   <div className="flex justify-between items-center mb-3 text-xs">
                     <span className="text-slate-500 font-semibold">{match.group_stage}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${
-                        match.status === "finished"
-                          ? "bg-slate-800 text-slate-400"
-                          : match.status === "live" || new Date(match.kickoff_time) <= now
-                          ? "bg-rose-500/20 text-rose-400 border border-rose-500/20 animate-pulse"
-                          : "bg-emerald-500/10 text-emerald-400"
-                      }`}
-                    >
-                      {match.status === "live" ||
-                      (match.status === "scheduled" && new Date(match.kickoff_time) <= now) ? (
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping shrink-0" />
-                      ) : match.status === "scheduled" ? (
-                        <Clock className="w-3 h-3 shrink-0 text-emerald-400" />
-                      ) : null}
-                      {getCountdownString(match.kickoff_time, match.status)}
-                    </span>
+                    <MatchStatusBadge match={match} />
                   </div>
 
                   <div className="flex items-center justify-between px-2 py-1">
@@ -644,12 +690,6 @@ export default function GroupDashboardClient({
 
                   <div className="mt-3 pt-2.5 border-t border-white/5 text-[11px] text-slate-500 flex justify-between items-center">
                     <span>{formatToBoliviaTime(match.kickoff_time)}</span>
-                    {hasRollover && (
-                      <span className="text-rose-400 font-semibold flex items-center gap-1">
-                        <ArrowRight className="w-3 h-3" />
-                        Rollover {Number(match.rollover_pool).toFixed(0)} Bs.
-                      </span>
-                    )}
                   </div>
                 </div>
               );
@@ -670,12 +710,6 @@ export default function GroupDashboardClient({
                   <p className="text-xs text-slate-500 mt-0.5">
                     {selectedMatch.team_a} vs {selectedMatch.team_b}
                   </p>
-                  {Number(selectedMatch.rollover_pool) > 0 && (
-                    <p className="text-[10px] text-rose-400 mt-1 flex items-center gap-1">
-                      <ArrowRight className="w-3 h-3" />
-                      Rollover incluido: {Number(selectedMatch.rollover_pool).toFixed(0)} Bs.
-                    </p>
-                  )}
                 </div>
                 <div className="text-right">
                   <span className="text-2xl font-black text-emerald-400">
@@ -701,6 +735,13 @@ export default function GroupDashboardClient({
                   </div>
                 )}
 
+                {alreadyBet && selectedMatch.status !== "finished" && (
+                  <div className="mb-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span><strong>{participantName.trim()}</strong> ya tiene una apuesta registrada en este partido.</span>
+                  </div>
+                )}
+
                 <form onSubmit={handlePlaceBet} className="space-y-4">
                   {/* Partido seleccionado */}
                   <div className="bg-slate-950/40 rounded-xl p-3.5 border border-white/5 flex flex-col items-center">
@@ -722,18 +763,99 @@ export default function GroupDashboardClient({
 
                   {/* Nombre */}
                   <div className="flex flex-col gap-1.5">
-                    <label htmlFor="participant-name-input" className="text-xs font-semibold text-slate-300">
-                      Tu Nombre / Apodo
-                    </label>
-                    <input
-                      id="participant-name-input"
-                      type="text"
-                      placeholder="Ej. Juan, Crack99"
-                      value={participantName}
-                      onChange={(e) => setParticipantName(e.target.value)}
-                      disabled={isPendingBet || selectedMatch.status === "finished"}
-                      className="glass-input text-sm"
-                    />
+                    {hasSavedName ? (
+                      <>
+                        <label htmlFor="participant-name-input" className="text-xs font-semibold text-slate-300">
+                          Tu Nombre / Apodo (Registrado)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id="participant-name-input"
+                            type="text"
+                            value={participantName}
+                            disabled={true}
+                            className="glass-input text-sm bg-slate-950/40 text-emerald-400 font-bold border-emerald-500/20 cursor-not-allowed flex-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              localStorage.removeItem("polla_participant_name");
+                              setParticipantName("");
+                              setHasSavedName(false);
+                              if (existingParticipants.length > 0) {
+                                setNameSource("select");
+                              } else {
+                                setNameSource("custom");
+                              }
+                            }}
+                            className="text-[10px] text-rose-400 hover:text-rose-300 transition px-2.5 py-2 rounded bg-rose-500/10 border border-rose-500/20 cursor-pointer font-bold animate-pulse"
+                          >
+                            Cambiar
+                          </button>
+                        </div>
+                      </>
+                    ) : nameSource === "select" ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <label htmlFor="participant-name-select" className="text-xs font-semibold text-slate-300">
+                            Selecciona tu Nombre / Apodo
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNameSource("custom");
+                              setParticipantName("");
+                            }}
+                            className="text-[10px] text-amber-400 hover:text-amber-300 transition font-semibold cursor-pointer"
+                          >
+                            Crear Nuevo Apodo
+                          </button>
+                        </div>
+                        <select
+                          id="participant-name-select"
+                          value={participantName}
+                          onChange={(e) => setParticipantName(e.target.value)}
+                          disabled={isPendingBet || selectedMatch.status === "finished"}
+                          className="glass-input text-sm font-semibold text-slate-200"
+                        >
+                          <option value="">-- Selecciona tu nombre --</option>
+                          {existingParticipants.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <label htmlFor="participant-name-input" className="text-xs font-semibold text-slate-300">
+                            Tu Nombre / Apodo
+                          </label>
+                          {existingParticipants.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNameSource("select");
+                                setParticipantName("");
+                              }}
+                              className="text-[10px] text-amber-400 hover:text-amber-300 transition font-semibold cursor-pointer"
+                            >
+                              Seleccionar Registrado
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          id="participant-name-input"
+                          type="text"
+                          placeholder="Ej. Juan, Crack99"
+                          value={participantName}
+                          onChange={(e) => setParticipantName(e.target.value)}
+                          disabled={isPendingBet || selectedMatch.status === "finished"}
+                          className="glass-input text-sm"
+                        />
+                      </>
+                    )}
                   </div>
 
                   {/* Pronóstico */}
@@ -803,7 +925,7 @@ export default function GroupDashboardClient({
 
                   <button
                     type="submit"
-                    disabled={isPendingBet || selectedMatch.status === "finished"}
+                    disabled={isPendingBet || selectedMatch.status === "finished" || alreadyBet}
                     className="btn-green w-full mt-4 cursor-pointer text-sm py-3.5 flex items-center justify-center gap-2 disabled:opacity-50"
                     id="btn-bet-submit"
                   >
@@ -818,81 +940,6 @@ export default function GroupDashboardClient({
                 </form>
               </div>
 
-              {/* Panel Simulador */}
-              {isAdminMode && (
-                <div className="glass-panel p-6 border-dashed border-amber-500/40" id="simulator-panel">
-                  <h2 className="text-lg font-extrabold text-amber-400 mb-1 flex items-center gap-2">
-                    <Wrench className="w-5 h-5 shrink-0" /> Score Real
-                  </h2>
-                  <p className="text-xs text-slate-400 mb-4">
-                    Al guardar, se distribuye el pozo automáticamente entre los ganadores.
-                    Si nadie acierta, el pozo pasa al siguiente partido.
-                  </p>
-
-                  <form onSubmit={handleSimulateScore} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1">
-                        <label htmlFor="sim-score-a" className="text-[10px] text-slate-400 truncate">
-                          {selectedMatch.team_a}
-                        </label>
-                        <input
-                          id="sim-score-a"
-                          type="number"
-                          min="0"
-                          value={simScoreA}
-                          onChange={(e) => setSimScoreA(e.target.value)}
-                          disabled={isPendingSim}
-                          className="glass-input text-center text-lg font-bold w-full p-2"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label htmlFor="sim-score-b" className="text-[10px] text-slate-400 truncate">
-                          {selectedMatch.team_b}
-                        </label>
-                        <input
-                          id="sim-score-b"
-                          type="number"
-                          min="0"
-                          value={simScoreB}
-                          onChange={(e) => setSimScoreB(e.target.value)}
-                          disabled={isPendingSim}
-                          className="glass-input text-center text-lg font-bold w-full p-2"
-                        />
-                      </div>
-                    </div>
-
-                    {simError && (
-                      <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <span>{simError}</span>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={handleResetMatch}
-                        disabled={isPendingSim || selectedMatch.score_a === null}
-                        className="btn-outline text-xs py-2.5 cursor-pointer disabled:opacity-40 flex items-center justify-center gap-1.5"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" /> Reiniciar
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isPendingSim}
-                        className="btn-gold text-xs py-2.5 cursor-pointer flex items-center justify-center gap-1.5"
-                        id="btn-sim-submit"
-                      >
-                        {isPendingSim ? (
-                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Guardando...</>
-                        ) : (
-                          "Guardar Score"
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
             </>
           )}
         </section>
@@ -932,15 +979,14 @@ export default function GroupDashboardClient({
                     >
                       <div className="flex items-center gap-3 w-7/12">
                         <div
-                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border shrink-0 ${
-                            isTop
-                              ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                              : isSecond
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border shrink-0 ${isTop
+                            ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                            : isSecond
                               ? "bg-slate-300/10 text-slate-300 border-slate-300/20"
                               : isThird
-                              ? "bg-amber-700/10 text-amber-600 border-amber-700/20"
-                              : "bg-slate-900 text-slate-400 border-white/5"
-                          }`}
+                                ? "bg-amber-700/10 text-amber-600 border-amber-700/20"
+                                : "bg-slate-900 text-slate-400 border-white/5"
+                            }`}
                         >
                           {index + 1}
                         </div>
@@ -954,18 +1000,16 @@ export default function GroupDashboardClient({
 
                       <div className="text-right w-5/12 flex flex-col items-end gap-1">
                         {/* Pts siempre visible */}
-                        <span className={`text-sm font-black px-2.5 py-1 rounded-lg border ${
-                          user.points > 0
-                            ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                            : "text-slate-500 bg-slate-800/40 border-white/5"
-                        }`}>
+                        <span className={`text-sm font-black px-2.5 py-1 rounded-lg border ${user.points > 0
+                          ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                          : "text-slate-500 bg-slate-800/40 border-white/5"
+                          }`}>
                           {user.points} pts
                         </span>
                         {/* Bs. ganados: solo si hay premios distribuidos */}
                         {hasDistributedPrizes && (
-                          <span className={`text-[10px] font-bold ${
-                            user.prizeWon > 0 ? "text-amber-400" : "text-slate-600"
-                          }`}>
+                          <span className={`text-[10px] font-bold ${user.prizeWon > 0 ? "text-amber-400" : "text-slate-600"
+                            }`}>
                             {user.prizeWon > 0 ? `+${user.prizeWon.toFixed(0)} Bs.` : "Sin premio"}
                           </span>
                         )}
@@ -1007,17 +1051,18 @@ export default function GroupDashboardClient({
                 {bets.map((bet) => {
                   const ev = evaluateBetDisplay(bet);
                   const prize = Number(bet.prize_won ?? 0);
+                  const matchData = bet.matches || matches.find((m) => m.id === bet.match_id);
                   return (
                     <tr key={bet.id}>
                       <td className="font-bold text-slate-200">{bet.participant_name}</td>
                       <td>
-                        {bet.matches ? (
+                        {matchData ? (
                           <div className="flex items-center gap-1.5 text-xs">
-                            <span className="flex shrink-0">{getFlag(bet.matches.team_a)}</span>
-                            <span className="font-semibold text-slate-200">{bet.matches.team_a}</span>
+                            <span className="flex shrink-0">{getFlag(matchData.team_a)}</span>
+                            <span className="font-semibold text-slate-200">{matchData.team_a}</span>
                             <span className="text-slate-500">vs</span>
-                            <span className="font-semibold text-slate-200">{bet.matches.team_b}</span>
-                            <span className="flex shrink-0">{getFlag(bet.matches.team_b)}</span>
+                            <span className="font-semibold text-slate-200">{matchData.team_b}</span>
+                            <span className="flex shrink-0">{getFlag(matchData.team_b)}</span>
                           </div>
                         ) : (
                           "—"
@@ -1027,8 +1072,8 @@ export default function GroupDashboardClient({
                         {bet.predicted_score_a} - {bet.predicted_score_b}
                       </td>
                       <td className="font-mono text-slate-400 text-sm">
-                        {bet.matches?.score_a !== null && bet.matches?.score_b !== null
-                          ? `${bet.matches?.score_a} - ${bet.matches?.score_b}`
+                        {matchData && matchData.score_a !== null && matchData.score_b !== null
+                          ? `${matchData.score_a} - ${matchData.score_b}`
                           : "—"}
                       </td>
                       <td className="text-slate-300 font-semibold text-sm">
@@ -1050,6 +1095,42 @@ export default function GroupDashboardClient({
           </div>
         )}
       </section>
+
+      {/* Modal del Simulador / Administrador */}
+      {isAdminMode && selectedMatch && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+          onClick={() => setIsAdminMode(false)}
+        >
+          <div
+            className="relative w-full max-w-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Botón de cerrar */}
+            <button
+              onClick={() => setIsAdminMode(false)}
+              className="absolute top-3.5 right-3.5 text-slate-400 hover:text-slate-200 cursor-pointer bg-slate-800/80 p-1.5 rounded-full hover:bg-slate-700 transition z-10 border border-white/10"
+              aria-label="Cerrar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <SimulatorPanel
+              selectedMatch={selectedMatch}
+              simScoreA={simScoreA}
+              simScoreB={simScoreB}
+              setSimScoreA={setSimScoreA}
+              setSimScoreB={setSimScoreB}
+              simError={simError}
+              isPendingSim={isPendingSim}
+              handleSimulateScore={handleSimulateScore}
+              handleResetMatch={handleResetMatch}
+              matchBets={matchBets}
+              matchTotalPool={matchTotalPool}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="mt-12 text-center text-xs text-slate-600 py-6 border-t border-white/5">

@@ -159,6 +159,22 @@ export async function placeBet(
     return { success: false, error: "No puedes apostar en un partido que ya terminó." };
   }
 
+  // Verificar que el participante no haya apostado ya en este partido (case-insensitive)
+  const { data: existingBet } = await supabase
+    .from("bets")
+    .select("id")
+    .eq("match_id", matchId)
+    .eq("group_id", groupId)
+    .ilike("participant_name", participantName.trim())
+    .maybeSingle();
+
+  if (existingBet) {
+    return {
+      success: false,
+      error: `"${participantName.trim()}" ya registró una apuesta en este partido. Solo se permite una apuesta por participante.`,
+    };
+  }
+
   const { error } = await supabase.from("bets").insert([
     {
       group_id: groupId,
@@ -204,12 +220,48 @@ export async function updateMatchScore(
 
   // --- Reinicio de un partido ya evaluado ---
   if (!isFinished) {
-    // Resetear apuestas y quitar distribución
-    const { data: matchData } = await supabase
+    // Obtener información del partido actual y sus apuestas antes de resetear
+    const { data: currentMatch } = await supabase
       .from("matches")
-      .select("rollover_pool")
+      .select("rollover_pool, status, kickoff_time, prize_distributed")
       .eq("id", matchId)
       .single();
+
+    if (currentMatch && currentMatch.prize_distributed) {
+      // Ver si en este partido hubo ganadores (pts = 3)
+      const { data: matchBets } = await supabase
+        .from("bets")
+        .select("points_won, amount")
+        .eq("match_id", matchId)
+        .eq("group_id", groupId);
+
+      const hasWinners = matchBets && matchBets.some(b => Number(b.points_won) === 3);
+
+      // Si no hubo ganadores, el pozo de este partido se transfirió como rollover al siguiente.
+      // Debemos deshacer esa transferencia.
+      if (!hasWinners) {
+        const matchPool = (matchBets || []).reduce((acc, b) => acc + Number(b.amount), 0);
+        const totalPoolToDeduct = matchPool + Number(currentMatch.rollover_pool);
+
+        // Buscar el siguiente partido que heredó este rollover
+        const { data: nextMatch } = await supabase
+          .from("matches")
+          .select("id, rollover_pool")
+          .neq("id", matchId)
+          .eq("status", "scheduled")
+          .order("kickoff_time", { ascending: true })
+          .limit(1)
+          .single();
+
+        if (nextMatch) {
+          const cleanRollover = Math.max(0, Number(nextMatch.rollover_pool) - totalPoolToDeduct);
+          await supabase
+            .from("matches")
+            .update({ rollover_pool: cleanRollover })
+            .eq("id", nextMatch.id);
+        }
+      }
+    }
 
     await supabase
       .from("matches")
@@ -299,13 +351,10 @@ export async function updateMatchScore(
   const winners = evaluated.filter((b) => b.points_won === 3);
 
   if (winners.length > 0) {
-    // Distribuir el pool entre los ganadores proporcionalmente a su monto apostado
-    const winnersPoolTotal = winners.reduce((acc, b) => acc + b.amount, 0);
+    // Distribuir el pool entre los ganadores en partes iguales
+    const share = totalPool / winners.length;
 
     winners.forEach((w) => {
-      const share = winnersPoolTotal > 0
-        ? (w.amount / winnersPoolTotal) * totalPool
-        : totalPool / winners.length;
       w.prize_won = Math.round(share * 100) / 100;
     });
 
