@@ -9,7 +9,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Polla Mundial 2026 | Apuestas de Grupos en Vivo",
+  title: "Copa Mundial 2026 | Apuestas de Grupos en Vivo",
   description: "Crea tu grupo con un código secreto y compite en tiempo real pronosticando los resultados de la Copa Mundial de Fútbol 2026. Conversión automática a Hora de Bolivia.",
 };
 

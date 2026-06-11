@@ -20,7 +20,7 @@ export default function HomePage() {
   const handleCreateGroup = (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError("");
-    
+
     if (!createName.trim()) {
       setCreateError("El nombre del grupo es obligatorio.");
       return;
@@ -64,14 +64,14 @@ export default function HomePage() {
 
       {/* Contenedor Principal */}
       <div className="w-full max-w-4xl z-10">
-        
+
         {/* Cabecera / Hero */}
         <header className="text-center mb-12">
           <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-4 pulse-badge">
             <Trophy className="w-3.5 h-3.5" /> Copa Mundial FIFA 2026
           </span>
           <h1 className="text-4xl md:text-6xl font-black tracking-tight bg-gradient-to-r from-emerald-400 via-amber-300 to-amber-500 bg-clip-text text-transparent mb-4">
-            Polla Mundialista
+            Copa Mundialista
           </h1>
           <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto font-light leading-relaxed">
             Crea grupos privados, invita a tus amigos con un código secreto y apuesta en los partidos de inauguración del mundial. Gestiona resultados en tiempo real y calcula posiciones de forma automática.
@@ -80,7 +80,7 @@ export default function HomePage() {
 
         {/* Formularios - Lado a Lado en pantallas medianas */}
         <div className="grid md:grid-cols-2 gap-8 mt-8">
-          
+
           {/* Card: Crear Grupo */}
           <section className="glass-panel p-6 md:p-8 flex flex-col justify-between relative overflow-hidden" id="section-create">
             <div className="shimmer-effect absolute inset-0 pointer-events-none" />
@@ -215,7 +215,7 @@ export default function HomePage() {
                 </button>
               </form>
             </div>
-            
+
             {/* Pequeña Info de Ayuda */}
             <div className="mt-8 pt-4 border-t border-slate-800/60 text-[11px] text-slate-500 text-center">
               Las apuestas están totalmente aisladas entre distintos grupos para mayor seguridad.
@@ -226,7 +226,7 @@ export default function HomePage() {
 
         {/* Sección Informativa Inferior */}
         <footer className="mt-16 text-center text-xs text-slate-500 border-t border-slate-800/40 pt-6">
-          <p>© 2026 Polla Mundialista. Construido con tecnología Next.js y Supabase.</p>
+          <p>© 2026 Copa Mundialista. Construido con tecnología Next.js y Supabase.</p>
           <p className="mt-1.5 text-slate-600">Soporte automático para zona horaria de Bolivia (UTC-4).</p>
         </footer>
 
