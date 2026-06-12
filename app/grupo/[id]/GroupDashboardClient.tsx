@@ -830,6 +830,12 @@ export default function GroupDashboardClient({
 
                     <div className="mt-3 pt-2.5 border-t border-white/5 text-[11px] text-slate-500 flex justify-between items-center">
                       <span suppressHydrationWarning>{formatToBoliviaTime(match.kickoff_time)}</span>
+                      {Number(match.rollover_pool) > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-full">
+                          <Coins className="w-2.5 h-2.5 shrink-0" />
+                          +{Number(match.rollover_pool).toFixed(0)} Bs. acumulado
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
