@@ -7,9 +7,11 @@ import { Trophy, Plus, LogIn, AlertCircle, Loader2, Shield } from "lucide-react"
 export default function HomePage() {
   // Estados para Crear Grupo
   const [createName, setCreateName] = useState("");
-  const [createCode, setCreateCode] = useState("");
   const [createError, setCreateError] = useState("");
   const [isPendingCreate, startCreateTransition] = useTransition();
+
+  const generateCode = () =>
+    Math.random().toString(36).slice(2, 8).toUpperCase();
 
   // Estados para Unirse a Grupo
   const [joinCodeInput, setJoinCodeInput] = useState("");
@@ -25,15 +27,17 @@ export default function HomePage() {
       setCreateError("El nombre del grupo es obligatorio.");
       return;
     }
-    if (!createCode.trim()) {
-      setCreateError("El código secreto es obligatorio.");
-      return;
-    }
 
+    const autoCode = generateCode();
     startCreateTransition(async () => {
-      const response = await createGroup(createName, createCode);
+      const response = await createGroup(createName, autoCode);
       if (!response.success) {
-        setCreateError(response.error || "Ocurrió un error inesperado.");
+        // Colisión extremadamente rara → reintentar con nuevo código
+        const retryCode = generateCode();
+        const retry = await createGroup(createName, retryCode);
+        if (!retry.success) {
+          setCreateError(retry.error || "Ocurrió un error inesperado.");
+        }
       }
     });
   };
@@ -111,26 +115,10 @@ export default function HomePage() {
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="create-code-input" className="text-xs font-medium text-slate-300">
-                    Código Secreto de Acceso
-                  </label>
-                  <div className="relative">
-                    <Shield className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
-                    <input
-                      id="create-code-input"
-                      type="text"
-                      placeholder="Ej. mundial2026, los-pibes"
-                      value={createCode}
-                      onChange={(e) => setCreateCode(e.target.value)}
-                      disabled={isPendingCreate}
-                      className="glass-input-prefix w-full text-sm"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-500">
-                    Este código servirá para invitar a otros miembros a unirse.
-                  </p>
-                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  <Shield className="inline w-3 h-3 mr-1 text-emerald-400" />
+                  Se generará automáticamente un código de 6 dígitos para invitar a otros miembros.
+                </p>
 
                 {createError && (
                   <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium flex items-start gap-2">
