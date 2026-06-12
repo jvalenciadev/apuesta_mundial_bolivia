@@ -116,10 +116,10 @@ export default function SimulatorPanel({
     };
   });
 
-  const winners = preview.filter((p) => p.status !== "loser");
+  const winners = preview.filter((p) => p.status === "exact");
 
   preview.forEach((p) => {
-    if (p.status !== "loser" && winners.length > 0) {
+    if (p.status === "exact" && winners.length > 0) {
       p.prizeShare = Math.round((matchTotalPool / winners.length) * 100) / 100;
     }
   });
@@ -263,7 +263,7 @@ export default function SimulatorPanel({
                     </span>
                   </div>
                   <div className="text-right shrink-0 ml-2">
-                    {p.status !== "loser" ? (
+                    {p.status === "exact" ? (
                       <span className="text-xs font-black text-emerald-400">
                         +{p.prizeShare.toFixed(0)} Bs.
                       </span>

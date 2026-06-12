@@ -148,18 +148,20 @@ export async function placeBet(
     return { success: false, error: "No autorizado para este grupo." };
   }
 
-  // Verificar que el partido no esté finalizado
+  // Verificar el estado del partido y su hora de inicio
   const { data: match } = await supabase
     .from("matches")
-    .select("status")
+    .select("status, kickoff_time")
     .eq("id", matchId)
     .single();
 
-  if (match?.status === "finished") {
-    return { success: false, error: "No puedes apostar en un partido que ya terminó." };
+  if (!match) {
+    return { success: false, error: "El partido no existe." };
   }
 
-  // Verificar que el participante no haya apostado ya en este partido (case-insensitive)
+  const isMatchStarted = match.status !== "scheduled" || new Date(match.kickoff_time) <= new Date();
+
+  // Verificar si ya existe una apuesta de este participante en este partido
   const { data: existingBet } = await supabase
     .from("bets")
     .select("id")
@@ -169,13 +171,34 @@ export async function placeBet(
     .maybeSingle();
 
   if (existingBet) {
-    return {
-      success: false,
-      error: `"${participantName.trim()}" ya registró una apuesta en este partido. Solo se permite una apuesta por participante.`,
-    };
+    // Si ya existe la apuesta, se permite EDITARLA solo si el partido no ha empezado
+    if (isMatchStarted) {
+      return { success: false, error: "No puedes modificar tu apuesta una vez empezado el partido." };
+    }
+
+    const { error: updateError } = await supabase
+      .from("bets")
+      .update({
+        predicted_score_a: predScoreA,
+        predicted_score_b: predScoreB,
+        amount,
+      })
+      .eq("id", existingBet.id);
+
+    if (updateError) {
+      return { success: false, error: `Error al actualizar la apuesta: ${updateError.message}` };
+    }
+
+    revalidatePath(`/grupo/${groupId}`);
+    return { success: true };
   }
 
-  const { error } = await supabase.from("bets").insert([
+  // Si no existe, se crea una nueva apuesta (solo si el partido no ha empezado)
+  if (isMatchStarted) {
+    return { success: false, error: "No puedes apostar en un partido que ya empezó o terminó." };
+  }
+
+  const { error: insertError } = await supabase.from("bets").insert([
     {
       group_id: groupId,
       match_id: matchId,
@@ -189,8 +212,8 @@ export async function placeBet(
     },
   ]);
 
-  if (error) {
-    return { success: false, error: `Error al registrar la apuesta: ${error.message}` };
+  if (insertError) {
+    return { success: false, error: `Error al registrar la apuesta: ${insertError.message}` };
   }
 
   revalidatePath(`/grupo/${groupId}`);
