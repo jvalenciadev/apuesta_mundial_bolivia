@@ -143,8 +143,8 @@ export default function SimulatorPanel({
   };
   const statusLabels: Record<string, string> = {
     exact: "Exacto",
-    winner: sA === sB ? "Empate ✓" : "Ganador ✓",
-    loser: "Pierde",
+    winner: sA === sB ? "Acierta Empate (+1 pt)" : "Acierta Ganador (+1 pt)",
+    loser: "Pierde (0 pts)",
   };
 
   return (

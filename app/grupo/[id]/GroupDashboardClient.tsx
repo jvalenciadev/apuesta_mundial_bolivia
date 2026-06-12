@@ -219,7 +219,7 @@ export default function GroupDashboardClient({
   const [matches, setMatches] = useState<Match[]>(initialMatches);
   const [bets, setBets] = useState<Bet[]>(initialBets);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(
-    initialMatches.length > 0 ? initialMatches[0] : null
+    initialMatches.find((m) => m.status !== "finished") || (initialMatches.length > 0 ? initialMatches[0] : null)
   );
 
   const [participantName, setParticipantName] = useState("");
@@ -350,6 +350,18 @@ export default function GroupDashboardClient({
       setSimScoreB(selectedMatch.score_b !== null ? String(selectedMatch.score_b) : "0");
     }
   }, [selectedMatch]);
+
+  // Auto-select the first active match if the selected one is finished and we are not in admin mode
+  useEffect(() => {
+    if (!isAdminMode && selectedMatch && selectedMatch.status === "finished") {
+      const firstActive = matches.find((m) => m.status !== "finished");
+      if (firstActive) {
+        setSelectedMatch(firstActive);
+      } else {
+        setSelectedMatch(null);
+      }
+    }
+  }, [matches, selectedMatch, isAdminMode]);
 
   // Prefilar el formulario de apuesta si el participante ya tiene una apuesta en este partido
   useEffect(() => {
@@ -535,6 +547,29 @@ export default function GroupDashboardClient({
 
   const currentLeader = leaderboard.length > 0 ? leaderboard[0].name : "Ninguno aún";
 
+  // Group bets by match_id, keeping only bets for non-finished matches
+  const activeBets = bets.filter((bet) => {
+    const matchData = bet.matches || matches.find((m) => m.id === bet.match_id);
+    return !matchData || matchData.status !== "finished";
+  });
+
+  // Group by match_id
+  const betsByMatch: Record<string, Bet[]> = {};
+  activeBets.forEach((bet) => {
+    if (!betsByMatch[bet.match_id]) {
+      betsByMatch[bet.match_id] = [];
+    }
+    betsByMatch[bet.match_id].push(bet);
+  });
+
+  // Sort matches by kickoff time
+  const sortedMatchIds = Object.keys(betsByMatch).sort((a, b) => {
+    const matchA = matches.find((m) => m.id === a);
+    const matchB = matches.find((m) => m.id === b);
+    if (!matchA || !matchB) return 0;
+    return new Date(matchA.kickoff_time).getTime() - new Date(matchB.kickoff_time).getTime();
+  });
+
   // -----------------------------------------------------------------------
   // Render
   // -----------------------------------------------------------------------
@@ -673,8 +708,10 @@ export default function GroupDashboardClient({
           </div>
 
           <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
-            {matches.map((match) => {
-              const isSelected = selectedMatch?.id === match.id;
+            {matches
+              .filter((match) => isAdminMode || match.status !== "finished")
+              .map((match) => {
+                const isSelected = selectedMatch?.id === match.id;
               const hasRollover = Number(match.rollover_pool) > 0;
               return (
                 <div
@@ -1062,73 +1099,79 @@ export default function GroupDashboardClient({
 
       {/* Historial de Apuestas */}
       <section className="glass-panel p-6 z-10 overflow-hidden" id="section-bets-history">
-        <h2 className="text-lg font-extrabold text-slate-200 mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-extrabold text-slate-200 mb-6 flex items-center gap-2">
           <ClipboardList className="w-5 h-5 text-emerald-400" /> Historial de Apuestas
         </h2>
 
-        {bets.length === 0 ? (
+        {sortedMatchIds.length === 0 ? (
           <div className="text-center py-12 text-slate-500 text-sm">
             No se han registrado apuestas en este grupo todavía.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Participante</th>
-                  <th>Partido</th>
-                  <th>Pronóstico</th>
-                  <th>Score Real</th>
-                  <th>Apostado</th>
-                  <th>Premio</th>
-                  <th>Resultado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bets.map((bet) => {
-                  const ev = evaluateBetDisplay(bet);
-                  const prize = Number(bet.prize_won ?? 0);
-                  const matchData = bet.matches || matches.find((m) => m.id === bet.match_id);
-                  return (
-                    <tr key={bet.id}>
-                      <td className="font-bold text-slate-200">{bet.participant_name}</td>
-                      <td>
-                        {matchData ? (
-                          <div className="flex items-center gap-1.5 text-xs">
-                            <span className="flex shrink-0">{getFlag(matchData.team_a)}</span>
-                            <span className="font-semibold text-slate-200">{matchData.team_a}</span>
-                            <span className="text-slate-500">vs</span>
-                            <span className="font-semibold text-slate-200">{matchData.team_b}</span>
-                            <span className="flex shrink-0">{getFlag(matchData.team_b)}</span>
-                          </div>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="font-mono text-slate-200 text-sm font-semibold">
-                        {bet.predicted_score_a} - {bet.predicted_score_b}
-                      </td>
-                      <td className="font-mono text-slate-400 text-sm">
-                        {matchData && matchData.score_a !== null && matchData.score_b !== null
-                          ? `${matchData.score_a} - ${matchData.score_b}`
-                          : "—"}
-                      </td>
-                      <td className="text-slate-300 font-semibold text-sm">
-                        {Number(bet.amount).toFixed(0)} Bs.
-                      </td>
-                      <td className={`font-black text-sm ${prize > 0 ? "text-emerald-400" : "text-slate-600"}`}>
-                        {prize > 0 ? `+${prize.toFixed(0)} Bs.` : "—"}
-                      </td>
-                      <td>
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs border font-medium ${ev.badgeClass}`}>
-                          {ev.label}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="space-y-6">
+            {sortedMatchIds.map((matchId) => {
+              const matchBetsList = betsByMatch[matchId];
+              const matchData = matches.find((m) => m.id === matchId);
+              if (!matchData) return null;
+
+              return (
+                <div key={matchId} className="bg-slate-950/20 border border-white/5 rounded-xl overflow-hidden">
+                  {/* Cabecera del Partido */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/40 px-4 py-3 border-b border-white/5">
+                    <div className="flex items-center gap-2 text-xs md:text-sm font-semibold">
+                      <span className="flex shrink-0">{getFlag(matchData.team_a)}</span>
+                      <span className="text-slate-200">{matchData.team_a}</span>
+                      <span className="text-slate-500">vs</span>
+                      <span className="text-slate-200">{matchData.team_b}</span>
+                      <span className="flex shrink-0">{getFlag(matchData.team_b)}</span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-mono">
+                      {formatToBoliviaTime(matchData.kickoff_time)}
+                    </div>
+                  </div>
+
+                  {/* Tabla de Apuestas para este partido */}
+                  <div className="overflow-x-auto">
+                    <table className="custom-table w-full">
+                      <thead>
+                        <tr>
+                          <th>Participante</th>
+                          <th>Pronóstico</th>
+                          <th>Apostado</th>
+                          <th>Premio</th>
+                          <th>Resultado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matchBetsList.map((bet) => {
+                          const ev = evaluateBetDisplay(bet);
+                          const prize = Number(bet.prize_won ?? 0);
+                          return (
+                            <tr key={bet.id}>
+                              <td className="font-bold text-slate-200">{bet.participant_name}</td>
+                              <td className="font-mono text-slate-200 text-sm font-semibold">
+                                {bet.predicted_score_a} - {bet.predicted_score_b}
+                              </td>
+                              <td className="text-slate-300 font-semibold text-sm">
+                                {Number(bet.amount).toFixed(0)} Bs.
+                              </td>
+                              <td className={`font-black text-sm ${prize > 0 ? "text-emerald-400" : "text-slate-600"}`}>
+                                {prize > 0 ? `+${prize.toFixed(0)} Bs.` : "—"}
+                              </td>
+                              <td>
+                                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs border font-medium ${ev.badgeClass}`}>
+                                  {ev.label}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
