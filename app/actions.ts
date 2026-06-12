@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 export type ActionResponse = {
   success: boolean;
@@ -176,7 +177,10 @@ export async function placeBet(
       return { success: false, error: "No puedes modificar tu apuesta una vez empezado el partido." };
     }
 
-    const { data: updatedRows, error: updateError } = await supabase
+    // Se usa el cliente admin (service_role) para bypasear RLS en el UPDATE.
+    // Es seguro porque este código solo corre en el servidor (Server Action).
+    const adminSupabase = createAdminClient();
+    const { data: updatedRows, error: updateError } = await adminSupabase
       .from("bets")
       .update({
         predicted_score_a: predScoreA,
@@ -192,7 +196,7 @@ export async function placeBet(
       return { success: false, error: `Error al actualizar la apuesta: ${updateError.message}` };
     }
     if (!updatedRows || updatedRows.length === 0) {
-      return { success: false, error: "La apuesta no pudo actualizarse (sin permiso o fila no encontrada)." };
+      return { success: false, error: "La apuesta no pudo actualizarse (fila no encontrada)." };
     }
 
     revalidatePath(`/grupo/${groupId}`);
