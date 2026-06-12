@@ -431,6 +431,31 @@ export default function GroupDashboardClient({
         setHasSavedName(true);
         setBetSuccess(true);
         setToastExiting(false);
+
+        // Actualización optimista del estado local para reflejar el cambio inmediatamente
+        // sin esperar al realtime (que puede no dispararse en el mismo cliente que hace el update)
+        setBets((prev) => {
+          const existingIdx = prev.findIndex(
+            (b) =>
+              b.match_id === selectedMatch.id &&
+              b.participant_name.toLowerCase() === participantName.trim().toLowerCase()
+          );
+          if (existingIdx >= 0) {
+            // UPDATE: reemplazar la apuesta existente con los nuevos valores
+            const updated = [...prev];
+            updated[existingIdx] = {
+              ...updated[existingIdx],
+              predicted_score_a: pA,
+              predicted_score_b: pB,
+              amount: amt,
+            };
+            return updated;
+          } else {
+            // INSERT: agregar nueva apuesta temporal (el realtime la completará con el id real)
+            return prev;
+          }
+        });
+
         if (!alreadyBet) {
           setPredScoreA("0");
           setPredScoreB("0");
