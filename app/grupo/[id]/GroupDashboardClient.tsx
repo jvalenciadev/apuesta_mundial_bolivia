@@ -398,17 +398,8 @@ export default function GroupDashboardClient({
     }
   }, [selectedMatch]);
 
-  // Auto-select the first active match if the selected one is finished and we are not in admin mode
-  useEffect(() => {
-    if (!isAdminMode && selectedMatch && selectedMatch.status === "finished") {
-      const firstActive = matches.find((m) => m.status !== "finished");
-      if (firstActive) {
-        setSelectedMatch(firstActive);
-      } else {
-        setSelectedMatch(null);
-      }
-    }
-  }, [matches, selectedMatch, isAdminMode]);
+  // Note: we intentionally do NOT auto-jump away from finished matches so the user
+  // can access the simulator on them (admin mode) or view their results.
 
   // Prefilar el formulario de apuesta si el participante ya tiene una apuesta en este partido
   useEffect(() => {
