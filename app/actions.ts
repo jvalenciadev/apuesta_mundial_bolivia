@@ -188,15 +188,13 @@ export async function placeBet(
         amount,
       })
       .eq("id", existingBet.id)
-      .eq("group_id", groupId)
-      .eq("match_id", matchId)
       .select("id");
 
     if (updateError) {
       return { success: false, error: `Error al actualizar la apuesta: ${updateError.message}` };
     }
     if (!updatedRows || updatedRows.length === 0) {
-      return { success: false, error: "La apuesta no pudo actualizarse (fila no encontrada)." };
+      return { success: false, error: `La apuesta no pudo actualizarse (id: ${existingBet.id}).` };
     }
 
     revalidatePath(`/grupo/${groupId}`);
