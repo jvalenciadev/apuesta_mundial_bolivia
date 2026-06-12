@@ -545,8 +545,8 @@ export default function GroupDashboardClient({
 
 
   // --- Derived stats ---
-  const isMatchStarted = selectedMatch ? (selectedMatch.status !== "scheduled" || new Date(selectedMatch.kickoff_time) <= new Date()) : false;
-  const isEditable = selectedMatch && !isMatchStarted;
+  const isMatchFinished = selectedMatch ? selectedMatch.status === "finished" : false;
+  const isEditable = selectedMatch && !isMatchFinished;
 
   const totalPool = bets.reduce((acc, b) => acc + (Number(b.amount) || 0), 0);
   const totalBets = bets.length;
@@ -1016,7 +1016,7 @@ export default function GroupDashboardClient({
                           id="participant-name-select"
                           value={participantName}
                           onChange={(e) => setParticipantName(e.target.value)}
-                          disabled={isPendingBet || selectedMatch.status === "finished" || isMatchStarted}
+                          disabled={isPendingBet || isMatchFinished}
                           className="glass-input text-sm font-semibold text-slate-200"
                         >
                           <option value="">-- Selecciona tu nombre --</option>
@@ -1052,7 +1052,7 @@ export default function GroupDashboardClient({
                           placeholder="Ej. Juan, Crack99"
                           value={participantName}
                           onChange={(e) => setParticipantName(e.target.value)}
-                          disabled={isPendingBet || selectedMatch.status === "finished" || isMatchStarted}
+                          disabled={isPendingBet || isMatchFinished}
                           className="glass-input text-sm"
                         />
                       </>
@@ -1073,7 +1073,7 @@ export default function GroupDashboardClient({
                           min="0"
                           value={predScoreA}
                           onChange={(e) => setPredScoreA(e.target.value)}
-                          disabled={isPendingBet || selectedMatch.status === "finished" || isMatchStarted}
+                          disabled={isPendingBet || isMatchFinished}
                           className="glass-input text-center text-lg font-bold w-full p-2"
                         />
                       </div>
@@ -1087,7 +1087,7 @@ export default function GroupDashboardClient({
                           min="0"
                           value={predScoreB}
                           onChange={(e) => setPredScoreB(e.target.value)}
-                          disabled={isPendingBet || selectedMatch.status === "finished" || isMatchStarted}
+                          disabled={isPendingBet || isMatchFinished}
                           className="glass-input text-center text-lg font-bold w-full p-2"
                         />
                       </div>
@@ -1111,7 +1111,7 @@ export default function GroupDashboardClient({
                         placeholder="10"
                         value={betAmount}
                         onChange={(e) => setBetAmount(e.target.value)}
-                        disabled={isPendingBet || selectedMatch.status === "finished" || isMatchStarted}
+                        disabled={isPendingBet || isMatchFinished}
                         className="glass-input-prefix text-sm font-semibold"
                       />
                     </div>
@@ -1129,7 +1129,7 @@ export default function GroupDashboardClient({
                     disabled={
                       isPendingBet ||
                       (alreadyBet && !isEditable) ||
-                      (selectedMatch.status === "finished" || isMatchStarted)
+                      isMatchFinished
                     }
                     className="btn-green w-full mt-4 cursor-pointer text-sm py-3.5 flex items-center justify-center gap-2 disabled:opacity-50"
                     id="btn-bet-submit"
