@@ -186,16 +186,16 @@ function evaluateBetDisplay(bet: Bet): BetEvaluation {
       };
     case "winner":
       return {
-        label: "Ganador +3 pts",
-        badgeClass: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-        points: 3,
+        label: "Ganador +1 pt",
+        badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+        points: 1,
         status: "winner",
       };
     case "loser":
       return {
-        label: "Perdedor +1 pt",
+        label: "Perdedor 0 pts",
         badgeClass: "bg-rose-500/10 text-rose-400/70 border-rose-500/10",
-        points: 1,
+        points: 0,
         status: "loser",
       };
     default:
@@ -954,10 +954,10 @@ export default function GroupDashboardClient({
                 <Star className="w-2.5 h-2.5" /> Exacto = 3 pts
               </span>
               <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-full">
-                <TrendingUp className="w-2.5 h-2.5" /> Ganador = 3 pts
+                <TrendingUp className="w-2.5 h-2.5" /> Ganador = 1 pt
               </span>
               <span className="inline-flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/10 border border-rose-500/10 px-2 py-1 rounded-full">
-                Perdedor = 1 pt
+                Perdedor = 0 pts
               </span>
             </div>
 

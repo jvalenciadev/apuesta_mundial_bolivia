@@ -15,19 +15,19 @@ export type ActionResponse = {
  * Determina el resultado de una apuesta dado el marcador real.
  *
  * Sistema de puntos:
- *   3 pts → Acierto exacto (marcador exacto) o resultado correcto (ganador/empate)
- *   1 pt  → Predicción incorrecta (consolación)
+ *   3 pts → Acierto exacto (marcador exacto)
+ *   1 pt  → Resultado correcto (ganador/empate, pero no marcador exacto)
+ *   0 pts → Predicción incorrecta (fallo total)
  *
  * Para el pool de premios:
- *   "winner" → predijo correctamente ganador o empate (pts = 3)
- *   "loser"  → predicción incorrecta (pts = 1)
+ *   Solo los aciertos exactos ("exact") ganan y se reparten el pozo de premios.
  */
 function evaluatePrediction(
   predA: number,
   predB: number,
   actualA: number,
   actualB: number
-): { points: 3 | 1; status: "exact" | "winner" | "loser" } {
+): { points: 3 | 1 | 0; status: "exact" | "winner" | "loser" } {
   const actualOutcome = Math.sign(actualA - actualB); // 1, -1, 0
   const predOutcome = Math.sign(predA - predB);
 
@@ -35,9 +35,9 @@ function evaluatePrediction(
     return { points: 3, status: "exact" };
   }
   if (predOutcome === actualOutcome) {
-    return { points: 3, status: "winner" };
+    return { points: 1, status: "winner" };
   }
-  return { points: 1, status: "loser" };
+  return { points: 0, status: "loser" };
 }
 
 // ---------------------------------------------------------------------------
@@ -228,14 +228,14 @@ export async function updateMatchScore(
       .single();
 
     if (currentMatch && currentMatch.prize_distributed) {
-      // Ver si en este partido hubo ganadores (pts = 3)
+      // Ver si en este partido hubo ganadores de pozo (marcador exacto)
       const { data: matchBets } = await supabase
         .from("bets")
-        .select("points_won, amount")
+        .select("result_status, amount")
         .eq("match_id", matchId)
         .eq("group_id", groupId);
 
-      const hasWinners = matchBets && matchBets.some(b => Number(b.points_won) === 3);
+      const hasWinners = matchBets && matchBets.some(b => b.result_status === "exact");
 
       // Si no hubo ganadores, el pozo de este partido se transfirió como rollover al siguiente.
       // Debemos deshacer esa transferencia.
@@ -347,8 +347,8 @@ export async function updateMatchScore(
   const matchPool = evaluated.reduce((acc, b) => acc + b.amount, 0);
   const totalPool = matchPool + accumulatedRollover;
 
-  // --- Identificar ganadores (pts = 3) ---
-  const winners = evaluated.filter((b) => b.points_won === 3);
+  // --- Identificar ganadores del pozo (marcador exacto) ---
+  const winners = evaluated.filter((b) => b.result_status === "exact");
 
   if (winners.length > 0) {
     // Distribuir el pool entre los ganadores en partes iguales
