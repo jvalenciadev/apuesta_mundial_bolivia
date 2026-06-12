@@ -263,9 +263,17 @@ export default function GroupDashboardClient({
   }, []);
 
   // Obtener participantes registrados en el grupo
-  const existingParticipants = Array.from(
-    new Set(bets.map((b) => b.participant_name.trim()))
-  ).sort();
+  const participantNamesMap = new Map<string, string>();
+  bets.forEach((b) => {
+    const trimmed = b.participant_name.trim();
+    const lower = trimmed.toLowerCase();
+    if (!participantNamesMap.has(lower) || (trimmed !== lower && trimmed.toUpperCase() !== trimmed)) {
+      participantNamesMap.set(lower, trimmed);
+    }
+  });
+  const existingParticipants = Array.from(participantNamesMap.values()).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
 
   // Cambiar a input manual por defecto si no hay participantes registrados aún
   useEffect(() => {
@@ -518,6 +526,15 @@ export default function GroupDashboardClient({
     )
     : false;
 
+  // Apuesta resuelta del participante actual en el partido seleccionado
+  const myResolvedBet = selectedMatch && participantName.trim()
+    ? matchBets.find(
+      (b) =>
+        b.participant_name.toLowerCase() === participantName.trim().toLowerCase() &&
+        b.result_status !== "pending"
+    )
+    : null;
+
   // Rollover en juego (acumulado sólo en partidos pendientes de disputa)
   const totalRollover = matches
     .filter((m) => m.status === "scheduled")
@@ -541,10 +558,12 @@ export default function GroupDashboardClient({
   const participantMap: Record<string, ParticipantStat> = {};
 
   bets.forEach((bet) => {
-    const name = bet.participant_name;
-    if (!participantMap[name]) {
-      participantMap[name] = {
-        name,
+    const originalName = bet.participant_name;
+    const lowerName = originalName.toLowerCase();
+
+    if (!participantMap[lowerName]) {
+      participantMap[lowerName] = {
+        name: originalName,
         points: 0,
         prizeWon: 0,
         totalBets: 0,
@@ -554,13 +573,19 @@ export default function GroupDashboardClient({
       };
     }
 
+    const pStat = participantMap[lowerName];
+    // Prefer mixed-case name over all-caps
+    if (originalName !== pStat.name && originalName.toUpperCase() !== originalName) {
+      pStat.name = originalName;
+    }
+
     const ev = evaluateBetDisplay(bet);
-    participantMap[name].points += ev.points;
-    participantMap[name].prizeWon += Number(bet.prize_won) || 0;
-    participantMap[name].totalBets += 1;
-    participantMap[name].totalAmount += Number(bet.amount) || 0;
-    if (ev.status === "exact" || ev.status === "winner") participantMap[name].wins += 1;
-    if (ev.status === "loser") participantMap[name].losses += 1;
+    pStat.points += ev.points;
+    pStat.prizeWon += Number(bet.prize_won) || 0;
+    pStat.totalBets += 1;
+    pStat.totalAmount += Number(bet.amount) || 0;
+    if (ev.status === "exact" || ev.status === "winner") pStat.wins += 1;
+    if (ev.status === "loser") pStat.losses += 1;
   });
 
   const leaderboard = Object.values(participantMap).sort((a, b) => {
@@ -739,49 +764,49 @@ export default function GroupDashboardClient({
               .filter((match) => isAdminMode || match.status !== "finished")
               .map((match) => {
                 const isSelected = selectedMatch?.id === match.id;
-              const hasRollover = Number(match.rollover_pool) > 0;
-              return (
-                <div
-                  key={match.id}
-                  onClick={() => setSelectedMatch(match)}
-                  className={`glass-panel p-4 cursor-pointer relative transition-all ${isSelected
-                    ? "border-emerald-500/50 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                    : "hover:border-white/15"
-                    }`}
-                >
-                  <div className="flex justify-between items-center mb-3 text-xs">
-                    <span className="text-slate-500 font-semibold">{match.group_stage}</span>
-                    <MatchStatusBadge match={match} />
-                  </div>
-
-                  <div className="flex items-center justify-between px-2 py-1">
-                    <div className="flex items-center gap-2 w-5/12">
-                      <span className="flex shrink-0">{getFlag(match.team_a)}</span>
-                      <span className="font-bold text-sm text-slate-200 truncate">{match.team_a}</span>
+                const hasRollover = Number(match.rollover_pool) > 0;
+                return (
+                  <div
+                    key={match.id}
+                    onClick={() => setSelectedMatch(match)}
+                    className={`glass-panel p-4 cursor-pointer relative transition-all ${isSelected
+                      ? "border-emerald-500/50 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                      : "hover:border-white/15"
+                      }`}
+                  >
+                    <div className="flex justify-between items-center mb-3 text-xs">
+                      <span className="text-slate-500 font-semibold">{match.group_stage}</span>
+                      <MatchStatusBadge match={match} />
                     </div>
 
-                    <div className="flex items-center justify-center gap-1.5 w-2/12">
-                      {match.score_a !== null ? (
-                        <span className="text-base font-black text-slate-100 bg-slate-950/60 px-2.5 py-0.5 rounded border border-white/5">
-                          {match.score_a} - {match.score_b}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">VS</span>
-                      )}
+                    <div className="flex items-center justify-between px-2 py-1">
+                      <div className="flex items-center gap-2 w-5/12">
+                        <span className="flex shrink-0">{getFlag(match.team_a)}</span>
+                        <span className="font-bold text-sm text-slate-200 truncate">{match.team_a}</span>
+                      </div>
+
+                      <div className="flex items-center justify-center gap-1.5 w-2/12">
+                        {match.score_a !== null ? (
+                          <span className="text-base font-black text-slate-100 bg-slate-950/60 px-2.5 py-0.5 rounded border border-white/5">
+                            {match.score_a} - {match.score_b}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">VS</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 w-5/12 justify-end text-right">
+                        <span className="font-bold text-sm text-slate-200 truncate">{match.team_b}</span>
+                        <span className="flex shrink-0">{getFlag(match.team_b)}</span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 w-5/12 justify-end text-right">
-                      <span className="font-bold text-sm text-slate-200 truncate">{match.team_b}</span>
-                      <span className="flex shrink-0">{getFlag(match.team_b)}</span>
+                    <div className="mt-3 pt-2.5 border-t border-white/5 text-[11px] text-slate-500 flex justify-between items-center">
+                      <span suppressHydrationWarning>{formatToBoliviaTime(match.kickoff_time)}</span>
                     </div>
                   </div>
-
-                  <div className="mt-3 pt-2.5 border-t border-white/5 text-[11px] text-slate-500 flex justify-between items-center">
-                    <span>{formatToBoliviaTime(match.kickoff_time)}</span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </section>
 
@@ -824,16 +849,61 @@ export default function GroupDashboardClient({
                 )}
 
                 {alreadyBet && (
-                  <div className={`mb-4 p-3.5 rounded-xl text-xs flex items-center gap-2 border ${
-                    isEditable
-                      ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
-                      : "bg-amber-500/10 border-amber-500/25 text-amber-400"
-                  }`}>
+                  <div className={`mb-4 p-3.5 rounded-xl text-xs flex items-center gap-2 border ${isEditable
+                    ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                    : "bg-amber-500/10 border-amber-500/25 text-amber-400"
+                    }`}>
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
                     <span>
                       <strong>{participantName.trim()}</strong> ya tiene una apuesta registrada en este partido.
                       {isEditable && " Puedes modificar tu pronóstico o monto abajo antes de empezar."}
                     </span>
+                  </div>
+                )}
+
+                {/* Resultado y ganancias del participante si la apuesta ya fue resuelta */}
+                {myResolvedBet && (
+                  <div className={`mb-4 rounded-xl border overflow-hidden ${myResolvedBet.result_status === "exact"
+                    ? "border-amber-500/30 bg-amber-500/5"
+                    : myResolvedBet.result_status === "winner"
+                      ? "border-emerald-500/25 bg-emerald-500/5"
+                      : "border-rose-500/15 bg-rose-500/5"
+                    }`}>
+                    <div className="px-4 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {myResolvedBet.result_status === "exact" && (
+                          <Star className="w-4 h-4 text-amber-400 shrink-0" />
+                        )}
+                        {myResolvedBet.result_status === "winner" && (
+                          <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
+                        )}
+                        {myResolvedBet.result_status === "loser" && (
+                          <AlertCircle className="w-4 h-4 text-rose-400/70 shrink-0" />
+                        )}
+                        <div>
+                          <p className={`text-xs font-bold ${myResolvedBet.result_status === "exact" ? "text-amber-400"
+                            : myResolvedBet.result_status === "winner" ? "text-emerald-400"
+                              : "text-rose-400/70"
+                            }`}>
+                            {myResolvedBet.result_status === "exact" && "¡Marcador exacto! +3 puntos"}
+                            {myResolvedBet.result_status === "winner" && "Ganador del partido +1 punto"}
+                            {myResolvedBet.result_status === "loser" && "Pronóstico fallido · 0 puntos"}
+                          </p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">
+                            Tu pronóstico: {myResolvedBet.predicted_score_a} – {myResolvedBet.predicted_score_b}
+                          </p>
+                        </div>
+                      </div>
+                      {Number(myResolvedBet.prize_won) > 0 && (
+                        <div className="text-right">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Ganaste</p>
+                          <p className="text-xl font-black text-amber-400">
+                            +{Number(myResolvedBet.prize_won).toFixed(0)}
+                            <span className="text-xs font-normal text-slate-400 ml-1">Bs.</span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -1021,8 +1091,8 @@ export default function GroupDashboardClient({
                   <button
                     type="submit"
                     disabled={
-                      isPendingBet || 
-                      (alreadyBet && !isEditable) || 
+                      isPendingBet ||
+                      (alreadyBet && !isEditable) ||
                       (selectedMatch.status === "finished" || isMatchStarted)
                     }
                     className="btn-green w-full mt-4 cursor-pointer text-sm py-3.5 flex items-center justify-center gap-2 disabled:opacity-50"
@@ -1107,13 +1177,13 @@ export default function GroupDashboardClient({
                           }`}>
                           {user.points} pts
                         </span>
-                        {/* Bs. ganados: solo si hay premios distribuidos */}
-                        {hasDistributedPrizes && (
-                          <span className={`text-[10px] font-bold ${user.prizeWon > 0 ? "text-amber-400" : "text-slate-600"
-                            }`}>
-                            {user.prizeWon > 0 ? `+${user.prizeWon.toFixed(0)} Bs.` : "Sin premio"}
-                          </span>
-                        )}
+                        {/* Ganancias: siempre visible */}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${user.prizeWon > 0
+                          ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                          : "text-slate-600 bg-slate-800/20 border-white/5"
+                          }`}>
+                          {user.prizeWon > 0 ? `+${user.prizeWon.toFixed(0)} Bs.` : "0 Bs."}
+                        </span>
                       </div>
                     </div>
                   );
@@ -1152,7 +1222,7 @@ export default function GroupDashboardClient({
                       <span className="text-slate-200">{matchData.team_b}</span>
                       <span className="flex shrink-0">{getFlag(matchData.team_b)}</span>
                     </div>
-                    <div className="text-[10px] text-slate-500 font-mono">
+                    <div className="text-[10px] text-slate-500 font-mono" suppressHydrationWarning>
                       {formatToBoliviaTime(matchData.kickoff_time)}
                     </div>
                   </div>

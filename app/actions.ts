@@ -244,15 +244,14 @@ export async function updateMatchScore(
   scoreA: number | null,
   scoreB: number | null
 ): Promise<ActionResponse> {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const adminSupabase = createAdminClient();
 
   const isFinished = scoreA !== null && scoreB !== null;
 
   // --- Reinicio de un partido ya evaluado ---
   if (!isFinished) {
     // Obtener información del partido actual y sus apuestas antes de resetear
-    const { data: currentMatch } = await supabase
+    const { data: currentMatch } = await adminSupabase
       .from("matches")
       .select("rollover_pool, status, kickoff_time, prize_distributed")
       .eq("id", matchId)
@@ -260,7 +259,7 @@ export async function updateMatchScore(
 
     if (currentMatch && currentMatch.prize_distributed) {
       // Ver si en este partido hubo ganadores de pozo (marcador exacto)
-      const { data: matchBets } = await supabase
+      const { data: matchBets } = await adminSupabase
         .from("bets")
         .select("result_status, amount")
         .eq("match_id", matchId)
@@ -275,7 +274,7 @@ export async function updateMatchScore(
         const totalPoolToDeduct = matchPool + Number(currentMatch.rollover_pool);
 
         // Buscar el siguiente partido que heredó este rollover
-        const { data: nextMatch } = await supabase
+        const { data: nextMatch } = await adminSupabase
           .from("matches")
           .select("id, rollover_pool")
           .neq("id", matchId)
@@ -286,7 +285,7 @@ export async function updateMatchScore(
 
         if (nextMatch) {
           const cleanRollover = Math.max(0, Number(nextMatch.rollover_pool) - totalPoolToDeduct);
-          await supabase
+          await adminSupabase
             .from("matches")
             .update({ rollover_pool: cleanRollover })
             .eq("id", nextMatch.id);
@@ -294,13 +293,13 @@ export async function updateMatchScore(
       }
     }
 
-    await supabase
+    await adminSupabase
       .from("matches")
       .update({ score_a: null, score_b: null, status: "scheduled", prize_distributed: false })
       .eq("id", matchId);
 
     // Resetear apuestas de este partido
-    await supabase
+    await adminSupabase
       .from("bets")
       .update({ points_won: 0, prize_won: 0, result_status: "pending" })
       .eq("match_id", matchId);
@@ -310,7 +309,7 @@ export async function updateMatchScore(
   }
 
   // --- Actualizar marcador ---
-  const { error: matchError } = await supabase
+  const { error: matchError } = await adminSupabase
     .from("matches")
     .update({
       score_a: scoreA,
@@ -325,7 +324,7 @@ export async function updateMatchScore(
   }
 
   // --- Obtener match con rollover acumulado ---
-  const { data: matchFull } = await supabase
+  const { data: matchFull } = await adminSupabase
     .from("matches")
     .select("rollover_pool")
     .eq("id", matchId)
@@ -334,7 +333,7 @@ export async function updateMatchScore(
   const accumulatedRollover = Number(matchFull?.rollover_pool ?? 0);
 
   // --- Obtener apuestas de este partido en este grupo ---
-  const { data: bets, error: betsError } = await supabase
+  const { data: bets, error: betsError } = await adminSupabase
     .from("bets")
     .select("id, predicted_score_a, predicted_score_b, amount, participant_name")
     .eq("match_id", matchId)
@@ -390,7 +389,7 @@ export async function updateMatchScore(
     });
 
     // Marcar partido como distribuido
-    await supabase
+    await adminSupabase
       .from("matches")
       .update({ prize_distributed: true })
       .eq("id", matchId);
@@ -398,7 +397,7 @@ export async function updateMatchScore(
   } else {
     // Sin ganadores → el pool se transfiere al próximo partido sin finalizar
     // Obtener el siguiente partido por fecha
-    const { data: nextMatch } = await supabase
+    const { data: nextMatch } = await adminSupabase
       .from("matches")
       .select("id, rollover_pool, kickoff_time")
       .neq("id", matchId)
@@ -409,24 +408,22 @@ export async function updateMatchScore(
 
     if (nextMatch) {
       const newRollover = Number(nextMatch.rollover_pool) + totalPool;
-      await supabase
+      await adminSupabase
         .from("matches")
         .update({ rollover_pool: newRollover })
         .eq("id", nextMatch.id);
     }
 
     // Marcar como distribuido (aunque sea rollover)
-    await supabase
+    await adminSupabase
       .from("matches")
       .update({ prize_distributed: true })
       .eq("id", matchId);
   }
 
   // --- Actualizar cada apuesta individualmente (update, no upsert) ---
-  // upsert intentaría INSERT si no hay match exacto, violando el constraint NOT NULL de group_id.
-  // update filtra por id existente, garantizando que solo se modifiquen filas existentes.
   for (const bet of evaluated) {
-    const { error: updateErr } = await supabase
+    const { error: updateErr } = await adminSupabase
       .from("bets")
       .update({
         points_won: bet.points_won,
