@@ -28,7 +28,7 @@ function evaluatePrediction(
   predB: number,
   actualA: number,
   actualB: number
-): { points: 3 | 1 | 0; status: "exact" | "winner" | "loser" } {
+): { points: 3 | 1 | 0; status: "exact" | "outcome" | "fail" } {
   const actualOutcome = Math.sign(actualA - actualB); // 1, -1, 0
   const predOutcome = Math.sign(predA - predB);
 
@@ -36,9 +36,9 @@ function evaluatePrediction(
     return { points: 3, status: "exact" };
   }
   if (predOutcome === actualOutcome) {
-    return { points: 1, status: "winner" };
+    return { points: 1, status: "outcome" };
   }
-  return { points: 0, status: "loser" };
+  return { points: 0, status: "fail" };
 }
 
 // ---------------------------------------------------------------------------
@@ -352,7 +352,7 @@ export async function updateMatchScore(
   type BetResult = {
     id: string;
     points_won: number;
-    result_status: "exact" | "winner" | "loser" | "pending";
+    result_status: "exact" | "outcome" | "fail" | "pending";
     prize_won: number;
     amount: number;
   };

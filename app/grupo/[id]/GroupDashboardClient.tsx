@@ -60,7 +60,7 @@ interface Bet {
   match_id: string;
   points_won: number;
   prize_won: number;
-  result_status: "pending" | "exact" | "winner" | "loser";
+  result_status: "pending" | "exact" | "outcome" | "fail";
   group_id?: string;
   matches?: {
     team_a: string;
@@ -184,19 +184,19 @@ function evaluateBetDisplay(bet: Bet): BetEvaluation {
         points: 3,
         status: "exact",
       };
-    case "winner":
+    case "outcome":
       return {
         label: "Ganador +1 pt",
         badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
         points: 1,
-        status: "winner",
+        status: "outcome",
       };
-    case "loser":
+    case "fail":
       return {
         label: "Perdedor 0 pts",
         badgeClass: "bg-rose-500/10 text-rose-400/70 border-rose-500/10",
         points: 0,
-        status: "loser",
+        status: "fail",
       };
     default:
       return {
@@ -206,6 +206,45 @@ function evaluateBetDisplay(bet: Bet): BetEvaluation {
         status: "pending",
       };
   }
+}
+
+function shouldShowMatch(match: Match): boolean {
+  if (match.status !== "finished") return true;
+
+  try {
+    const kickoff = new Date(match.kickoff_time);
+    const now = new Date();
+
+    // Check if it started less than 6 hours ago (recently finished / live matches)
+    const hoursSinceKickoff = (now.getTime() - kickoff.getTime()) / (1000 * 60 * 60);
+    if (hoursSinceKickoff >= 0 && hoursSinceKickoff < 6) {
+      return true;
+    }
+
+    // Check if kickoff was today in Bolivia timezone
+    const formatter = new Intl.DateTimeFormat("es-BO", {
+      timeZone: "America/La_Paz",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+
+    const dateParts = formatter.formatToParts(kickoff);
+    const nowParts = formatter.formatToParts(now);
+
+    const dateYear = dateParts.find(p => p.type === 'year')?.value;
+    const dateMonth = dateParts.find(p => p.type === 'month')?.value;
+    const dateDay = dateParts.find(p => p.type === 'day')?.value;
+
+    const nowYear = nowParts.find(p => p.type === 'year')?.value;
+    const nowMonth = nowParts.find(p => p.type === 'month')?.value;
+    const nowDay = nowParts.find(p => p.type === 'day')?.value;
+
+    return dateYear === nowYear && dateMonth === nowMonth && dateDay === nowDay;
+  } catch {
+    // fallback
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -584,8 +623,8 @@ export default function GroupDashboardClient({
     pStat.prizeWon += Number(bet.prize_won) || 0;
     pStat.totalBets += 1;
     pStat.totalAmount += Number(bet.amount) || 0;
-    if (ev.status === "exact" || ev.status === "winner") pStat.wins += 1;
-    if (ev.status === "loser") pStat.losses += 1;
+    if (ev.status === "exact" || ev.status === "outcome") pStat.wins += 1;
+    if (ev.status === "fail") pStat.losses += 1;
   });
 
   const leaderboard = Object.values(participantMap).sort((a, b) => {
@@ -761,7 +800,7 @@ export default function GroupDashboardClient({
 
           <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
             {matches
-              .filter((match) => isAdminMode || match.status !== "finished")
+              .filter((match) => isAdminMode || shouldShowMatch(match))
               .map((match) => {
                 const isSelected = selectedMatch?.id === match.id;
                 const hasRollover = Number(match.rollover_pool) > 0;
@@ -865,7 +904,7 @@ export default function GroupDashboardClient({
                 {myResolvedBet && (
                   <div className={`mb-4 rounded-xl border overflow-hidden ${myResolvedBet.result_status === "exact"
                     ? "border-amber-500/30 bg-amber-500/5"
-                    : myResolvedBet.result_status === "winner"
+                    : myResolvedBet.result_status === "outcome"
                       ? "border-emerald-500/25 bg-emerald-500/5"
                       : "border-rose-500/15 bg-rose-500/5"
                     }`}>
@@ -874,20 +913,20 @@ export default function GroupDashboardClient({
                         {myResolvedBet.result_status === "exact" && (
                           <Star className="w-4 h-4 text-amber-400 shrink-0" />
                         )}
-                        {myResolvedBet.result_status === "winner" && (
+                        {myResolvedBet.result_status === "outcome" && (
                           <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
                         )}
-                        {myResolvedBet.result_status === "loser" && (
+                        {myResolvedBet.result_status === "fail" && (
                           <AlertCircle className="w-4 h-4 text-rose-400/70 shrink-0" />
                         )}
                         <div>
                           <p className={`text-xs font-bold ${myResolvedBet.result_status === "exact" ? "text-amber-400"
-                            : myResolvedBet.result_status === "winner" ? "text-emerald-400"
+                            : myResolvedBet.result_status === "outcome" ? "text-emerald-400"
                               : "text-rose-400/70"
                             }`}>
                             {myResolvedBet.result_status === "exact" && "¡Marcador exacto! +3 puntos"}
-                            {myResolvedBet.result_status === "winner" && "Ganador del partido +1 punto"}
-                            {myResolvedBet.result_status === "loser" && "Pronóstico fallido · 0 puntos"}
+                            {myResolvedBet.result_status === "outcome" && "Ganador del partido +1 punto"}
+                            {myResolvedBet.result_status === "fail" && "Pronóstico fallido · 0 puntos"}
                           </p>
                           <p className="text-[10px] text-slate-500 mt-0.5">
                             Tu pronóstico: {myResolvedBet.predicted_score_a} – {myResolvedBet.predicted_score_b}
