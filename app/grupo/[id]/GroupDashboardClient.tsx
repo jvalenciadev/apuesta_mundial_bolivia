@@ -431,8 +431,10 @@ export default function GroupDashboardClient({
         setHasSavedName(true);
         setBetSuccess(true);
         setToastExiting(false);
-        setPredScoreA("0");
-        setPredScoreB("0");
+        if (!alreadyBet) {
+          setPredScoreA("0");
+          setPredScoreB("0");
+        }
         // Iniciar salida del toast después de 3s
         setTimeout(() => setToastExiting(true), 3000);
         setTimeout(() => setBetSuccess(false), 3400);

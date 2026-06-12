@@ -176,17 +176,19 @@ export async function placeBet(
       return { success: false, error: "No puedes modificar tu apuesta una vez empezado el partido." };
     }
 
-    const { error: updateError } = await supabase
+    const { data: updatedBet, error: updateError } = await supabase
       .from("bets")
       .update({
         predicted_score_a: predScoreA,
         predicted_score_b: predScoreB,
         amount,
       })
-      .eq("id", existingBet.id);
+      .eq("id", existingBet.id)
+      .select()
+      .single();
 
-    if (updateError) {
-      return { success: false, error: `Error al actualizar la apuesta: ${updateError.message}` };
+    if (updateError || !updatedBet) {
+      return { success: false, error: `Error al actualizar la apuesta en DB: ${updateError?.message || 'No rows updated'}` };
     }
 
     revalidatePath(`/grupo/${groupId}`);
