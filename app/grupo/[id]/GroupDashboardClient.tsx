@@ -638,11 +638,8 @@ export default function GroupDashboardClient({
 
   const currentLeader = leaderboard.length > 0 ? leaderboard[0].name : "Ninguno aún";
 
-  // Group bets by match_id, keeping only bets for non-finished matches
-  const activeBets = bets.filter((bet) => {
-    const matchData = bet.matches || matches.find((m) => m.id === bet.match_id);
-    return !matchData || matchData.status !== "finished";
-  });
+  // Group bets by match_id (all bets, including finished ones)
+  const activeBets = bets;
 
   // Group by match_id
   const betsByMatch: Record<string, Bet[]> = {};
