@@ -1353,7 +1353,9 @@ export default function GroupDashboardClient({
             })}
           </div>
         )}
-        {/* Footer */}
+      </section>
+
+      {/* Footer */}
         <footer className="mt-12 text-center text-xs text-slate-600 py-6 border-t border-white/5">
           <p>Copa Mundial de Fútbol 2026 | Desarrollado con Next.js y Supabase</p>
           <p className="mt-1">Zona Horaria: Bolivia (UTC-4)</p>
