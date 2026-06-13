@@ -5,6 +5,8 @@ import { placeBet, updateMatchScore, leaveGroup } from "../../actions";
 import { createClient } from "@/utils/supabase/client";
 import { getFlagSVG } from "@/utils/flags";
 import SimulatorPanel from "./SimulatorPanel";
+import { computeGroupRollovers } from "@/utils/rollover";
+
 import {
   Trophy,
   Copy,
@@ -536,6 +538,8 @@ export default function GroupDashboardClient({
 
 
   // --- Derived stats ---
+  const rollovers = computeGroupRollovers(matches, bets);
+
   const isMatchFinished = selectedMatch ? selectedMatch.status === "finished" : false;
   const isEditable = selectedMatch && !isMatchFinished;
 
@@ -547,7 +551,8 @@ export default function GroupDashboardClient({
     ? bets.filter((b) => b.match_id === selectedMatch.id)
     : [];
   const matchBetPool = matchBets.reduce((acc, b) => acc + (Number(b.amount) || 0), 0);
-  const matchTotalPool = matchBetPool + (Number(selectedMatch?.rollover_pool) || 0);
+  const matchRolloverData = selectedMatch ? rollovers[selectedMatch.id] : null;
+  const matchTotalPool = matchBetPool + (matchRolloverData ? matchRolloverData.rolloverCarriedIn : 0);
 
   // Detectar si el participante actual ya apostó en este partido
   const alreadyBet = selectedMatch && participantName.trim()
@@ -568,7 +573,7 @@ export default function GroupDashboardClient({
   // Rollover en juego (acumulado sólo en partidos pendientes de disputa)
   const totalRollover = matches
     .filter((m) => m.status === "scheduled")
-    .reduce((acc, m) => acc + (Number(m.rollover_pool) || 0), 0);
+    .reduce((acc, m) => acc + (rollovers[m.id]?.rolloverCarriedIn || 0), 0);
 
   // Premio total distribuido (suma de prize_won)
   const totalPrizeDistributed = bets.reduce((acc, b) => acc + (Number(b.prize_won) || 0), 0);
@@ -791,7 +796,7 @@ export default function GroupDashboardClient({
               .filter((match) => isAdminMode || shouldShowMatch(match))
               .map((match) => {
                 const isSelected = selectedMatch?.id === match.id;
-                const hasRollover = Number(match.rollover_pool) > 0;
+                const matchRollover = rollovers[match.id]?.rolloverCarriedIn || 0;
                 return (
                   <div
                     key={match.id}
@@ -830,10 +835,10 @@ export default function GroupDashboardClient({
 
                     <div className="mt-3 pt-2.5 border-t border-white/5 text-[11px] text-slate-500 flex justify-between items-center">
                       <span suppressHydrationWarning>{formatToBoliviaTime(match.kickoff_time)}</span>
-                      {Number(match.rollover_pool) > 0 && (
+                      {matchRollover > 0 && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-full">
                           <Coins className="w-2.5 h-2.5 shrink-0" />
-                          +{Number(match.rollover_pool).toFixed(0)} Bs. acumulado
+                          +{matchRollover.toFixed(0)} Bs. acumulado
                         </span>
                       )}
                     </div>
