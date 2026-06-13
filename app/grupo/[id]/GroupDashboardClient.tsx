@@ -666,7 +666,7 @@ export default function GroupDashboardClient({
   // Render
   // -----------------------------------------------------------------------
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-8 max-w-7xl mx-auto w-full relative mobile-safe-bottom">
+    <div className="h-dvh flex flex-col overflow-hidden w-full relative bg-[#090d16]">
       {/* Toast flotante - éxito apuesta */}
       {betSuccess && (
         <div
@@ -684,7 +684,9 @@ export default function GroupDashboardClient({
       <div className="absolute top-10 left-1/4 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-10 right-1/4 w-[400px] h-[400px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Header */}
+      {/* Contenedor principal scrollable */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full relative">
+        {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 z-10">
         <div>
           <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full uppercase">
@@ -802,7 +804,7 @@ export default function GroupDashboardClient({
             <span className="text-[10px] text-slate-500 uppercase">Hora Bolivia (UTC-4)</span>
           </div>
 
-          <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+          <div className="space-y-3 md:max-h-[560px] md:overflow-y-auto pr-1">
             {matches
               .filter((match) => isAdminMode || shouldShowMatch(match))
               .map((match) => {
@@ -1214,7 +1216,7 @@ export default function GroupDashboardClient({
                 Sin apuestas registradas. ¡Sé el primero!
               </div>
             ) : (
-              <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+              <div className="space-y-3 md:max-h-[480px] md:overflow-y-auto pr-1">
                 {leaderboard.map((user, index) => {
                   const isTop = index === 0;
                   const isSecond = index === 1;
@@ -1351,16 +1353,21 @@ export default function GroupDashboardClient({
             })}
           </div>
         )}
-      </section>
+        {/* Footer */}
+        <footer className="mt-12 text-center text-xs text-slate-600 py-6 border-t border-white/5">
+          <p>Copa Mundial de Fútbol 2026 | Desarrollado con Next.js y Supabase</p>
+          <p className="mt-1">Zona Horaria: Bolivia (UTC-4)</p>
+        </footer>
+      </div>
 
       {/* Modal del Simulador / Administrador */}
       {isAdminMode && selectedMatch && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
           onClick={() => setIsAdminMode(false)}
         >
           <div
-            className="relative w-full max-w-lg"
+            className="relative w-full max-w-lg my-8"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Botón de cerrar */}
@@ -1433,12 +1440,6 @@ export default function GroupDashboardClient({
           Historial
         </button>
       </nav>
-
-      {/* Footer */}
-      <footer className="mt-12 text-center text-xs text-slate-600 py-6 border-t border-white/5">
-        <p>Copa Mundial de Fútbol 2026 | Desarrollado con Next.js y Supabase</p>
-        <p className="mt-1">Zona Horaria: Bolivia (UTC-4)</p>
-      </footer>
     </div>
   );
 }
