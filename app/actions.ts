@@ -160,7 +160,10 @@ export async function placeBet(
     return { success: false, error: "El partido no existe." };
   }
 
-  const isMatchFinished = match.status === "finished";
+  const isMatchStarted =
+    match.status === "finished" ||
+    match.status === "live" ||
+    new Date(match.kickoff_time) <= new Date();
 
   // Verificar si ya existe una apuesta de este participante en este partido
   const { data: existingBet } = await supabase
@@ -172,9 +175,9 @@ export async function placeBet(
     .maybeSingle();
 
   if (existingBet) {
-    // Si ya existe la apuesta, se permite EDITARLA solo si el partido no ha terminado
-    if (isMatchFinished) {
-      return { success: false, error: "No puedes modificar tu apuesta una vez finalizado el partido." };
+    // Si ya existe la apuesta, se permite EDITARLA solo si el partido no ha comenzado
+    if (isMatchStarted) {
+      return { success: false, error: "No puedes modificar tu apuesta una vez que el partido ha comenzado." };
     }
 
     // Se usa el cliente admin (service_role) para bypasear RLS en el UPDATE.
@@ -201,9 +204,9 @@ export async function placeBet(
     return { success: true };
   }
 
-  // Si no existe, se crea una nueva apuesta (solo si el partido no ha terminado)
-  if (isMatchFinished) {
-    return { success: false, error: "No puedes apostar en un partido que ya terminó." };
+  // Si no existe, se crea una nueva apuesta (solo si el partido no ha comenzado)
+  if (isMatchStarted) {
+    return { success: false, error: "No puedes apostar en un partido que ya comenzó." };
   }
 
   const { error: insertError } = await supabase.from("bets").insert([
