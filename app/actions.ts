@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { computeGroupRollovers } from "../utils/rollover";
+
 
 export type ActionResponse = {
   success: boolean;
@@ -230,7 +232,6 @@ export async function placeBet(
   revalidatePath(`/grupo/${groupId}`);
   return { success: true };
 }
-
 // ---------------------------------------------------------------------------
 // updateMatchScore
 // Core business logic: distribución dinámica del pozo con rollover
@@ -253,49 +254,6 @@ export async function updateMatchScore(
 
   // --- Reinicio de un partido ya evaluado ---
   if (!isFinished) {
-    // Obtener información del partido actual y sus apuestas antes de resetear
-    const { data: currentMatch } = await adminSupabase
-      .from("matches")
-      .select("rollover_pool, status, kickoff_time, prize_distributed")
-      .eq("id", matchId)
-      .single();
-
-    if (currentMatch && currentMatch.prize_distributed) {
-      // Ver si en este partido hubo ganadores de pozo (marcador exacto)
-      const { data: matchBets } = await adminSupabase
-        .from("bets")
-        .select("result_status, amount")
-        .eq("match_id", matchId)
-        .eq("group_id", groupId);
-
-      const hasWinners = matchBets && matchBets.some(b => b.result_status === "exact");
-
-      // Si no hubo ganadores, el pozo de este partido se transfirió como rollover al siguiente.
-      // Debemos deshacer esa transferencia.
-      if (!hasWinners) {
-        const matchPool = (matchBets || []).reduce((acc, b) => acc + Number(b.amount), 0);
-        const totalPoolToDeduct = matchPool + Number(currentMatch.rollover_pool);
-
-        // Buscar el siguiente partido que heredó este rollover
-        const { data: nextMatch } = await adminSupabase
-          .from("matches")
-          .select("id, rollover_pool")
-          .neq("id", matchId)
-          .eq("status", "scheduled")
-          .order("kickoff_time", { ascending: true })
-          .limit(1)
-          .single();
-
-        if (nextMatch) {
-          const cleanRollover = Math.max(0, Number(nextMatch.rollover_pool) - totalPoolToDeduct);
-          await adminSupabase
-            .from("matches")
-            .update({ rollover_pool: cleanRollover })
-            .eq("id", nextMatch.id);
-        }
-      }
-    }
-
     await adminSupabase
       .from("matches")
       .update({ score_a: null, score_b: null, status: "scheduled", prize_distributed: false })
@@ -326,27 +284,39 @@ export async function updateMatchScore(
     return { success: false, error: `Error al actualizar el partido: ${matchError.message}` };
   }
 
-  // --- Obtener match con rollover acumulado ---
-  const { data: matchFull } = await adminSupabase
+  // --- Obtener todos los partidos y apuestas del grupo para calcular rollovers dinámicamente ---
+  const { data: allMatches, error: matchesError } = await adminSupabase
     .from("matches")
-    .select("rollover_pool")
-    .eq("id", matchId)
-    .single();
+    .select("id, status, kickoff_time, score_a, score_b")
+    .order("kickoff_time", { ascending: true });
 
-  const accumulatedRollover = Number(matchFull?.rollover_pool ?? 0);
-
-  // --- Obtener apuestas de este partido en este grupo ---
-  const { data: bets, error: betsError } = await adminSupabase
-    .from("bets")
-    .select("id, predicted_score_a, predicted_score_b, amount, participant_name")
-    .eq("match_id", matchId)
-    .eq("group_id", groupId);
-
-  if (betsError) {
-    return { success: false, error: `Error al obtener las apuestas: ${betsError.message}` };
+  if (matchesError || !allMatches) {
+    return { success: false, error: `Error al obtener partidos para el cálculo de pozo: ${matchesError?.message}` };
   }
 
-  if (!bets || bets.length === 0) {
+  const { data: allBets, error: allBetsError } = await adminSupabase
+    .from("bets")
+    .select("id, match_id, amount, predicted_score_a, predicted_score_b")
+    .eq("group_id", groupId);
+
+  if (allBetsError || !allBets) {
+    return { success: false, error: `Error al obtener apuestas para el cálculo de pozo: ${allBetsError?.message}` };
+  }
+
+  // Calcular rollovers
+  const rollovers = computeGroupRollovers(allMatches, allBets);
+  const matchRolloverData = rollovers[matchId];
+  const accumulatedRollover = matchRolloverData ? matchRolloverData.rolloverCarriedIn : 0;
+
+  // --- Obtener apuestas de este partido específico ---
+  const bets = allBets.filter((b) => b.match_id === matchId);
+
+  if (bets.length === 0) {
+    // Si no hay apuestas, marcar como distribuido (aunque no haga nada)
+    await adminSupabase
+      .from("matches")
+      .update({ prize_distributed: true })
+      .eq("id", matchId);
     revalidatePath(`/grupo/${groupId}`);
     return { success: true };
   }
@@ -390,39 +360,13 @@ export async function updateMatchScore(
     winners.forEach((w) => {
       w.prize_won = Math.round(share * 100) / 100;
     });
-
-    // Marcar partido como distribuido
-    await adminSupabase
-      .from("matches")
-      .update({ prize_distributed: true })
-      .eq("id", matchId);
-
-  } else {
-    // Sin ganadores → el pool se transfiere al próximo partido sin finalizar
-    // Obtener el siguiente partido por fecha
-    const { data: nextMatch } = await adminSupabase
-      .from("matches")
-      .select("id, rollover_pool, kickoff_time")
-      .neq("id", matchId)
-      .eq("status", "scheduled")
-      .order("kickoff_time", { ascending: true })
-      .limit(1)
-      .single();
-
-    if (nextMatch) {
-      const newRollover = Number(nextMatch.rollover_pool) + totalPool;
-      await adminSupabase
-        .from("matches")
-        .update({ rollover_pool: newRollover })
-        .eq("id", nextMatch.id);
-    }
-
-    // Marcar como distribuido (aunque sea rollover)
-    await adminSupabase
-      .from("matches")
-      .update({ prize_distributed: true })
-      .eq("id", matchId);
   }
+
+  // Marcar partido como distribuido en base de datos
+  await adminSupabase
+    .from("matches")
+    .update({ prize_distributed: true })
+    .eq("id", matchId);
 
   // --- Actualizar cada apuesta individualmente (update, no upsert) ---
   for (const bet of evaluated) {
@@ -443,3 +387,4 @@ export async function updateMatchScore(
   revalidatePath(`/grupo/${groupId}`);
   return { success: true };
 }
+

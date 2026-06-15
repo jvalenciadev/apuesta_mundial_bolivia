@@ -5,6 +5,8 @@ import { placeBet, updateMatchScore, leaveGroup } from "../../actions";
 import { createClient } from "@/utils/supabase/client";
 import { getFlagSVG } from "@/utils/flags";
 import SimulatorPanel from "./SimulatorPanel";
+import { computeGroupRollovers } from "@/utils/rollover";
+
 import {
   Trophy,
   Copy,
@@ -26,7 +28,10 @@ import {
   ArrowRight,
   Star,
   X,
+  CalendarDays,
+  ListOrdered,
 } from "lucide-react";
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -289,6 +294,11 @@ export default function GroupDashboardClient({
 
   const [copied, setCopied] = useState(false);
 
+  // Mobile tab navigation: 'matches' | 'bet' | 'leaderboard' | 'history'
+  type MobileTab = 'matches' | 'bet' | 'leaderboard' | 'history';
+  const [mobileTab, setMobileTab] = useState<MobileTab>('matches');
+
+
   // -----------------------------------------------------------------------
   // Sincronización de props del Servidor (Server Actions / revalidatePath)
   // -----------------------------------------------------------------------
@@ -550,6 +560,8 @@ export default function GroupDashboardClient({
 
 
   // --- Derived stats ---
+  const rollovers = computeGroupRollovers(matches, bets);
+
   const isMatchFinished = selectedMatch ? selectedMatch.status === "finished" : false;
   const isMatchStarted = selectedMatch
     ? (selectedMatch.status === "finished" ||
@@ -566,7 +578,8 @@ export default function GroupDashboardClient({
     ? bets.filter((b) => b.match_id === selectedMatch.id)
     : [];
   const matchBetPool = matchBets.reduce((acc, b) => acc + (Number(b.amount) || 0), 0);
-  const matchTotalPool = matchBetPool + (Number(selectedMatch?.rollover_pool) || 0);
+  const matchRolloverData = selectedMatch ? rollovers[selectedMatch.id] : null;
+  const matchTotalPool = matchBetPool + (matchRolloverData ? matchRolloverData.rolloverCarriedIn : 0);
 
   // Detectar si el participante actual ya apostó en este partido
   const alreadyBet = selectedMatch && participantName.trim()
@@ -587,7 +600,7 @@ export default function GroupDashboardClient({
   // Rollover en juego (acumulado sólo en partidos pendientes de disputa)
   const totalRollover = matches
     .filter((m) => m.status === "scheduled")
-    .reduce((acc, m) => acc + (Number(m.rollover_pool) || 0), 0);
+    .reduce((acc, m) => acc + (rollovers[m.id]?.rolloverCarriedIn || 0), 0);
 
   // Premio total distribuido (suma de prize_won)
   const totalPrizeDistributed = bets.reduce((acc, b) => acc + (Number(b.prize_won) || 0), 0);
@@ -672,7 +685,7 @@ export default function GroupDashboardClient({
   // Render
   // -----------------------------------------------------------------------
   return (
-    <div className="flex-1 flex flex-col p-4 md:p-8 max-w-7xl mx-auto w-full relative">
+    <div className="h-dvh flex flex-col overflow-hidden w-full relative bg-[#090d16]">
       {/* Toast flotante - éxito apuesta */}
       {betSuccess && (
         <div
@@ -690,7 +703,9 @@ export default function GroupDashboardClient({
       <div className="absolute top-10 left-1/4 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-10 right-1/4 w-[400px] h-[400px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Header */}
+      {/* Contenedor principal scrollable */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full relative">
+        {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 z-10">
         <div>
           <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full uppercase">
@@ -796,25 +811,28 @@ export default function GroupDashboardClient({
       </div>
 
       {/* Grid principal */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8 z-10 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8 z-10 items-start">
 
         {/* Columna 1: Partidos */}
-        <section className="lg:col-span-4 space-y-4" id="section-matches-list">
+        <section
+          className={`col-span-1 md:col-span-6 lg:col-span-4 space-y-4 ${mobileTab !== 'matches' ? 'hidden md:block' : ''}`}
+          id="section-matches-list"
+        >
           <div className="flex items-center justify-between px-1">
             <h2 className="text-lg font-extrabold text-slate-200">Partidos del Mundial</h2>
             <span className="text-[10px] text-slate-500 uppercase">Hora Bolivia (UTC-4)</span>
           </div>
 
-          <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+          <div className="space-y-3 md:max-h-[560px] md:overflow-y-auto pr-1">
             {matches
               .filter((match) => isAdminMode || shouldShowMatch(match))
               .map((match) => {
                 const isSelected = selectedMatch?.id === match.id;
-                const hasRollover = Number(match.rollover_pool) > 0;
+                const matchRollover = rollovers[match.id]?.rolloverCarriedIn || 0;
                 return (
                   <div
                     key={match.id}
-                    onClick={() => setSelectedMatch(match)}
+                    onClick={() => { setSelectedMatch(match); setMobileTab('bet'); }}
                     className={`glass-panel p-4 cursor-pointer relative transition-all ${isSelected
                       ? "border-emerald-500/50 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
                       : "hover:border-white/15"
@@ -849,10 +867,10 @@ export default function GroupDashboardClient({
 
                     <div className="mt-3 pt-2.5 border-t border-white/5 text-[11px] text-slate-500 flex justify-between items-center">
                       <span suppressHydrationWarning>{formatToBoliviaTime(match.kickoff_time)}</span>
-                      {Number(match.rollover_pool) > 0 && (
+                      {matchRollover > 0 && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-full">
                           <Coins className="w-2.5 h-2.5 shrink-0" />
-                          +{Number(match.rollover_pool).toFixed(0)} Bs. acumulado
+                          +{matchRollover.toFixed(0)} Bs. acumulado
                         </span>
                       )}
                     </div>
@@ -863,9 +881,18 @@ export default function GroupDashboardClient({
         </section>
 
         {/* Columna 2: Apostar + Simulador */}
-        <section className="lg:col-span-4 space-y-6">
-          {selectedMatch && (
+        <section
+          className={`col-span-1 md:col-span-6 lg:col-span-4 space-y-6 ${mobileTab !== 'bet' ? 'hidden md:block' : ''}`}
+        >
+          {selectedMatch ? (
             <>
+              {/* Mobile: back button to match list */}
+              <button
+                className="md:hidden flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition mb-4 cursor-pointer"
+                onClick={() => setMobileTab('matches')}
+              >
+                <ArrowRight className="w-3.5 h-3.5 rotate-180 text-emerald-400" /> Ver todos los partidos
+              </button>
               {/* Panel: Pozo del Partido */}
               <div className="glass-panel p-4 flex items-center justify-between bg-gradient-to-r from-emerald-950/30 to-transparent border-emerald-500/20">
                 <div>
@@ -1165,11 +1192,30 @@ export default function GroupDashboardClient({
               </div>
 
             </>
+          ) : (
+            <div className="glass-panel p-6 text-center py-12 flex flex-col items-center justify-center space-y-3">
+              <Ticket className="w-10 h-10 text-slate-500 animate-pulse" />
+              <p className="text-slate-400 text-sm font-semibold">
+                Ningún partido seleccionado
+              </p>
+              <p className="text-slate-500 text-xs max-w-xs mx-auto">
+                Selecciona un partido de la lista para registrar tu pronóstico o ver los detalles de las apuestas.
+              </p>
+              <button
+                className="md:hidden btn-green text-xs px-4 py-2 cursor-pointer mt-2"
+                onClick={() => setMobileTab('matches')}
+              >
+                Ver partidos
+              </button>
+            </div>
           )}
         </section>
 
         {/* Columna 3: Clasificación */}
-        <section className="lg:col-span-4 space-y-4" id="section-leaderboard">
+        <section
+          className={`col-span-1 md:col-span-12 lg:col-span-4 space-y-4 ${mobileTab !== 'leaderboard' ? 'hidden md:block' : ''}`}
+          id="section-leaderboard"
+        >
           <h2 className="text-lg font-extrabold text-slate-200 px-1">Clasificación</h2>
           <div className="glass-panel p-5 overflow-hidden">
             {/* Leyenda de puntos */}
@@ -1190,7 +1236,7 @@ export default function GroupDashboardClient({
                 Sin apuestas registradas. ¡Sé el primero!
               </div>
             ) : (
-              <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+              <div className="space-y-3 md:max-h-[480px] md:overflow-y-auto pr-1">
                 {leaderboard.map((user, index) => {
                   const isTop = index === 0;
                   const isSecond = index === 1;
@@ -1248,7 +1294,10 @@ export default function GroupDashboardClient({
       </div>
 
       {/* Historial de Apuestas */}
-      <section className="glass-panel p-6 z-10 overflow-hidden" id="section-bets-history">
+      <section
+        className={`glass-panel p-6 z-10 overflow-hidden ${mobileTab !== 'history' ? 'hidden md:block' : ''}`}
+        id="section-bets-history"
+      >
         <h2 className="text-lg font-extrabold text-slate-200 mb-6 flex items-center gap-2">
           <ClipboardList className="w-5 h-5 text-emerald-400" /> Historial de Apuestas
         </h2>
@@ -1326,14 +1375,21 @@ export default function GroupDashboardClient({
         )}
       </section>
 
+      {/* Footer */}
+        <footer className="mt-12 text-center text-xs text-slate-600 py-6 border-t border-white/5">
+          <p>Copa Mundial de Fútbol 2026 | Desarrollado con Next.js y Supabase</p>
+          <p className="mt-1">Zona Horaria: Bolivia (UTC-4)</p>
+        </footer>
+      </div>
+
       {/* Modal del Simulador / Administrador */}
       {isAdminMode && selectedMatch && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
           onClick={() => setIsAdminMode(false)}
         >
           <div
-            className="relative w-full max-w-lg"
+            className="relative w-full max-w-lg my-8"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Botón de cerrar */}
@@ -1362,11 +1418,50 @@ export default function GroupDashboardClient({
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="mt-12 text-center text-xs text-slate-600 py-6 border-t border-white/5">
-        <p>Copa Mundial de Fútbol 2026 | Desarrollado con Next.js y Supabase</p>
-        <p className="mt-1">Zona Horaria: Bolivia (UTC-4)</p>
-      </footer>
+      {/* ── Mobile Bottom Tab Bar ─────────────────────────── */}
+      <nav className="mobile-bottom-nav md:hidden" aria-label="Navegación principal">
+        <button
+          className={`mobile-tab-btn ${mobileTab === 'matches' ? 'active' : ''}`}
+          onClick={() => setMobileTab('matches')}
+          aria-label="Partidos"
+        >
+          <CalendarDays className="w-5 h-5" />
+          Partidos
+          {/* Badge: número de partidos en vivo */}
+          {matches.filter(m => m.status === 'live' || (m.status === 'scheduled' && new Date(m.kickoff_time) <= new Date())).length > 0 && (
+            <span className="tab-badge">
+              {matches.filter(m => m.status === 'live' || (m.status === 'scheduled' && new Date(m.kickoff_time) <= new Date())).length}
+            </span>
+          )}
+        </button>
+
+        <button
+          className={`mobile-tab-btn ${mobileTab === 'bet' ? 'active' : ''}`}
+          onClick={() => { setMobileTab('bet'); }}
+          aria-label="Apostar"
+        >
+          <Ticket className="w-5 h-5" />
+          Apostar
+        </button>
+
+        <button
+          className={`mobile-tab-btn ${mobileTab === 'leaderboard' ? 'active-gold' : ''}`}
+          onClick={() => setMobileTab('leaderboard')}
+          aria-label="Clasificación"
+        >
+          <Trophy className="w-5 h-5" />
+          Tabla
+        </button>
+
+        <button
+          className={`mobile-tab-btn ${mobileTab === 'history' ? 'active' : ''}`}
+          onClick={() => setMobileTab('history')}
+          aria-label="Historial"
+        >
+          <ListOrdered className="w-5 h-5" />
+          Historial
+        </button>
+      </nav>
     </div>
   );
 }
