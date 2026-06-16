@@ -30,6 +30,7 @@ import {
   X,
   CalendarDays,
   ListOrdered,
+  Tv,
 } from "lucide-react";
 
 
@@ -293,6 +294,7 @@ export default function GroupDashboardClient({
   const [isPendingSim, startSimTransition] = useTransition();
 
   const [copied, setCopied] = useState(false);
+  const [showStream, setShowStream] = useState(true);
 
   // Mobile tab navigation: 'matches' | 'bet' | 'leaderboard' | 'history'
   type MobileTab = 'matches' | 'bet' | 'leaderboard' | 'history';
@@ -673,12 +675,12 @@ export default function GroupDashboardClient({
     betsByMatch[bet.match_id].push(bet);
   });
 
-  // Sort matches by kickoff time
+  // Sort matches by kickoff time (descending order - newest first)
   const sortedMatchIds = Object.keys(betsByMatch).sort((a, b) => {
     const matchA = matches.find((m) => m.id === a);
     const matchB = matches.find((m) => m.id === b);
     if (!matchA || !matchB) return 0;
-    return new Date(matchA.kickoff_time).getTime() - new Date(matchB.kickoff_time).getTime();
+    return new Date(matchB.kickoff_time).getTime() - new Date(matchA.kickoff_time).getTime();
   });
 
   // -----------------------------------------------------------------------
@@ -735,6 +737,21 @@ export default function GroupDashboardClient({
           </div>
 
           <button
+            onClick={() => setShowStream(!showStream)}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold transition border cursor-pointer flex items-center gap-1.5 w-full md:w-auto justify-center ${
+              showStream
+                ? "bg-rose-500/20 border-rose-500/40 text-rose-400"
+                : "bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30"
+            }`}
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+            </span>
+            {showStream ? "Ocultar Transmisión" : "Ver Transmisión"}
+          </button>
+
+          <button
             onClick={() => leaveGroup(group.id)}
             className="btn-outline text-xs px-4 py-2.5 cursor-pointer w-full md:w-auto"
           >
@@ -744,6 +761,61 @@ export default function GroupDashboardClient({
           </button>
         </div>
       </header>
+
+      {/* Immersive Cinema Mode Player */}
+      {showStream && (
+        <div className="glass-panel p-4 md:p-6 mb-8 z-10 border-emerald-500/30 bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+              </span>
+              <div>
+                <h2 className="text-base font-extrabold text-slate-100 flex items-center gap-2">
+                  <Tv className="w-5 h-5 text-emerald-400" /> Transmisión Oficial en Vivo
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Copa Mundial 2026 &bull; Señal Directa
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="https://tvtvhd.com/mpd/drm.php?url=aHR0cHM6Ly9saXZlLW9uZWFwcC1wcmQtbmV3cy5ha2FtYWl6ZWQubmV0L0NvbnRlbnQvQ01BRl9PTDItQ1RSLTRzL0xpdmUvY2hhbm5lbChXTkpVKS9tYXN0ZXIubXBk&k=YzcxZmU3YmM4MmYwMzdjNmFmMjFmZDI5OWQ2MzQxYjA6MTMyMjNjOTg4ODZmZjQzZDNjNWYyNzFlZWI0NTdjYzY="
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3.5 py-2 rounded-lg border border-amber-500/25 transition cursor-pointer flex items-center gap-1.5"
+              >
+                Abrir en Ventana Externa ↗
+              </a>
+              <button
+                onClick={() => setShowStream(false)}
+                className="text-xs font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 px-3.5 py-2 rounded-lg border border-white/5 transition cursor-pointer"
+              >
+                Ocultar
+              </button>
+            </div>
+          </div>
+
+          <div className="relative w-full max-w-5xl mx-auto aspect-video rounded-2xl overflow-hidden border border-emerald-500/20 bg-black shadow-[0_0_30px_rgba(16,185,129,0.1)]">
+            <iframe
+              src="https://tvtvhd.com/mpd/drm.php?url=aHR0cHM6Ly9saXZlLW9uZWFwcC1wcmQtbmV3cy5ha2FtYWl6ZWQubmV0L0NvbnRlbnQvQ01BRl9PTDItQ1RSLTRzL0xpdmUvY2hhbm5lbChXTkpVKS9tYXN0ZXIubXBk&k=YzcxZmU3YmM4MmYwMzdjNmFmMjFmZDI5OWQ2MzQxYjA6MTMyMjNjOTg4ODZmZjQzZDNjNWYyNzFlZWI0NTdjYzY="
+              className="w-full h-full absolute inset-0"
+              allowFullScreen
+              allow="encrypted-media; autoplay"
+              title="Transmisión Oficial en Vivo"
+            ></iframe>
+          </div>
+
+          <div className="mt-4 text-center">
+            <p className="text-[11px] text-slate-500">
+              ⚠️ Nota: Si el video no se visualiza debido a restricciones de privacidad del navegador, usa el botón <strong>"Abrir en Ventana Externa"</strong>.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Stats rápidas */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 z-10">
@@ -912,6 +984,36 @@ export default function GroupDashboardClient({
                     {matchBets.length} apostador{matchBets.length !== 1 ? "es" : ""}
                   </p>
                 </div>
+              </div>
+
+              {/* Transmisión en Vivo */}
+              <div className="glass-panel p-4 flex items-center justify-between border-emerald-500/20 bg-gradient-to-r from-emerald-950/20 to-transparent">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                  </span>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200">Ver Transmisión en Vivo</h4>
+                    <p className="text-[10px] text-slate-400">Señal principal en la parte superior</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const nextVal = !showStream;
+                    setShowStream(nextVal);
+                    if (nextVal) {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                  className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition cursor-pointer ${
+                    showStream
+                      ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                      : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                  }`}
+                >
+                  {showStream ? "Apagar" : "Encender"}
+                </button>
               </div>
 
               {/* Formulario de Apuesta */}
