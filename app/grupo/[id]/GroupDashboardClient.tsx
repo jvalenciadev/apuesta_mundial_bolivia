@@ -294,7 +294,7 @@ export default function GroupDashboardClient({
   const [isPendingSim, startSimTransition] = useTransition();
 
   const [copied, setCopied] = useState(false);
-  const [showStream, setShowStream] = useState(true);
+  const [showStream, setShowStream] = useState(false);
 
   // Mobile tab navigation: 'matches' | 'bet' | 'leaderboard' | 'history'
   type MobileTab = 'matches' | 'bet' | 'leaderboard' | 'history';
