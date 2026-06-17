@@ -567,8 +567,8 @@ export default function GroupDashboardClient({
   const isMatchFinished = selectedMatch ? selectedMatch.status === "finished" : false;
   const isMatchStarted = selectedMatch
     ? (selectedMatch.status === "finished" ||
-       selectedMatch.status === "live" ||
-       (now ? new Date(selectedMatch.kickoff_time) <= now : false))
+      selectedMatch.status === "live" ||
+      (now ? new Date(selectedMatch.kickoff_time) <= now : false))
     : false;
   const isEditable = selectedMatch && !isMatchStarted;
 
@@ -708,776 +708,774 @@ export default function GroupDashboardClient({
       {/* Contenedor principal scrollable */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 max-w-7xl mx-auto w-full relative">
         {/* Header */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 z-10">
-        <div>
-          <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full uppercase">
-            Grupo Privado
-          </span>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-slate-100 mt-2 flex items-center gap-2">
-            <Trophy className="w-8 h-8 text-amber-400 shrink-0" /> {group.name}
-          </h1>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-lg p-2.5 text-sm w-full md:w-auto justify-between">
-            <span className="text-slate-400">Código:</span>
-            <code className="text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/25">
-              {group.code}
-            </code>
-            <button
-              onClick={handleCopyCode}
-              className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-white/10 transition cursor-pointer"
-            >
-              {copied ? (
-                <span className="flex items-center gap-1">Copiado <Check className="w-3.5 h-3.5" /></span>
-              ) : (
-                <span className="flex items-center gap-1">Copiar <Copy className="w-3.5 h-3.5" /></span>
-              )}
-            </button>
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 z-10">
+          <div>
+            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full uppercase">
+              Grupo Privado
+            </span>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-100 mt-2 flex items-center gap-2">
+              <Trophy className="w-8 h-8 text-amber-400 shrink-0" /> {group.name}
+            </h1>
           </div>
 
-          <button
-            onClick={() => setShowStream(!showStream)}
-            className={`px-4 py-2.5 rounded-lg text-xs font-bold transition border cursor-pointer flex items-center gap-1.5 w-full md:w-auto justify-center ${
-              showStream
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <div className="flex items-center gap-2 bg-slate-900/60 border border-white/10 rounded-lg p-2.5 text-sm w-full md:w-auto justify-between">
+              <span className="text-slate-400">Código:</span>
+              <code className="text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/25">
+                {group.code}
+              </code>
+              <button
+                onClick={handleCopyCode}
+                className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded border border-white/10 transition cursor-pointer"
+              >
+                {copied ? (
+                  <span className="flex items-center gap-1">Copiado <Check className="w-3.5 h-3.5" /></span>
+                ) : (
+                  <span className="flex items-center gap-1">Copiar <Copy className="w-3.5 h-3.5" /></span>
+                )}
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowStream(!showStream)}
+              className={`px-4 py-2.5 rounded-lg text-xs font-bold transition border cursor-pointer flex items-center gap-1.5 w-full md:w-auto justify-center ${showStream
                 ? "bg-rose-500/20 border-rose-500/40 text-rose-400"
                 : "bg-emerald-500/20 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30"
-            }`}
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-            </span>
-            {showStream ? "Ocultar Transmisión" : "Ver Transmisión"}
-          </button>
-
-          <button
-            onClick={() => leaveGroup(group.id)}
-            className="btn-outline text-xs px-4 py-2.5 cursor-pointer w-full md:w-auto"
-          >
-            <span className="flex items-center gap-1.5">
-              <LogOut className="w-4 h-4" /> Salir
-            </span>
-          </button>
-        </div>
-      </header>
-
-      {/* Immersive Cinema Mode Player */}
-      {showStream && (
-        <div className="glass-panel p-4 md:p-6 mb-8 z-10 border-emerald-500/30 bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-white/5">
-            <div className="flex items-center gap-3">
-              <span className="relative flex h-3 w-3">
+                }`}
+            >
+              <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
               </span>
-              <div>
-                <h2 className="text-base font-extrabold text-slate-100 flex items-center gap-2">
-                  <Tv className="w-5 h-5 text-emerald-400" /> Transmisión Oficial en Vivo
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Copa Mundial 2026 &bull; Señal Directa
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-2">
-              <a
-                href="https://tvtvhd.com/mpd/drm.php?url=aHR0cHM6Ly9saXZlLW9uZWFwcC1wcmQtbmV3cy5ha2FtYWl6ZWQubmV0L0NvbnRlbnQvQ01BRl9PTDItQ1RSLTRzL0xpdmUvY2hhbm5lbChXTkpVKS9tYXN0ZXIubXBk&k=YzcxZmU3YmM4MmYwMzdjNmFmMjFmZDI5OWQ2MzQxYjA6MTMyMjNjOTg4ODZmZjQzZDNjNWYyNzFlZWI0NTdjYzY="
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3.5 py-2 rounded-lg border border-amber-500/25 transition cursor-pointer flex items-center gap-1.5"
-              >
-                Abrir en Ventana Externa ↗
-              </a>
-              <button
-                onClick={() => setShowStream(false)}
-                className="text-xs font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 px-3.5 py-2 rounded-lg border border-white/5 transition cursor-pointer"
-              >
-                Ocultar
-              </button>
-            </div>
+              {showStream ? "Ocultar Transmisión" : "Ver Transmisión"}
+            </button>
+
+            <button
+              onClick={() => leaveGroup(group.id)}
+              className="btn-outline text-xs px-4 py-2.5 cursor-pointer w-full md:w-auto"
+            >
+              <span className="flex items-center gap-1.5">
+                <LogOut className="w-4 h-4" /> Salir
+              </span>
+            </button>
           </div>
+        </header>
 
-          <div className="relative w-full max-w-5xl mx-auto aspect-video rounded-2xl overflow-hidden border border-emerald-500/20 bg-black shadow-[0_0_30px_rgba(16,185,129,0.1)]">
-            <iframe
-              src="https://tvtvhd.com/mpd/drm.php?url=aHR0cHM6Ly9saXZlLW9uZWFwcC1wcmQtbmV3cy5ha2FtYWl6ZWQubmV0L0NvbnRlbnQvQ01BRl9PTDItQ1RSLTRzL0xpdmUvY2hhbm5lbChXTkpVKS9tYXN0ZXIubXBk&k=YzcxZmU3YmM4MmYwMzdjNmFmMjFmZDI5OWQ2MzQxYjA6MTMyMjNjOTg4ODZmZjQzZDNjNWYyNzFlZWI0NTdjYzY="
-              className="w-full h-full absolute inset-0"
-              allowFullScreen
-              allow="encrypted-media; autoplay"
-              title="Transmisión Oficial en Vivo"
-            ></iframe>
-          </div>
-
-          <div className="mt-4 text-center">
-            <p className="text-[11px] text-slate-500">
-              ⚠️ Nota: Si el video no se visualiza debido a restricciones de privacidad del navegador, usa el botón <strong>"Abrir en Ventana Externa"</strong>.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Stats rápidas */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 z-10">
-        <div className="glass-panel p-4 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Pozo Total</p>
-            <h3 className="text-2xl font-black text-emerald-400 mt-1">
-              {totalPool.toFixed(0)} <span className="text-xs font-normal text-slate-400">Bs.</span>
-            </h3>
-          </div>
-          <span className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20 text-emerald-400">
-            <Coins className="w-5 h-5" />
-          </span>
-        </div>
-
-        <div className="glass-panel p-4 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Apuestas</p>
-            <h3 className="text-2xl font-black text-amber-400 mt-1">{totalBets}</h3>
-          </div>
-          <span className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20 text-amber-400">
-            <Ticket className="w-5 h-5" />
-          </span>
-        </div>
-
-        <div className="glass-panel p-4 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Líder</p>
-            <h3 className="text-sm font-bold text-slate-100 truncate max-w-[110px] mt-1 flex items-center gap-1">
-              <Medal className="w-3.5 h-3.5 text-amber-400 shrink-0" /> {currentLeader}
-            </h3>
-          </div>
-          <span className="bg-blue-500/10 p-2.5 rounded-xl border border-blue-500/20 text-amber-400">
-            <Trophy className="w-5 h-5" />
-          </span>
-        </div>
-      </div>
-
-      {/* Simulador toggle */}
-      <div className="glass-panel p-4 mb-8 z-10 flex items-center justify-between border-dashed border-emerald-500/30">
-        <div className="flex items-center gap-3">
-          <Wrench className="w-5 h-5 text-amber-400 shrink-0" />
-          <div>
-            <h4 className="text-sm font-bold text-slate-200">Simulador de Resultados</h4>
-            <p className="text-xs text-slate-400">
-              Actualiza marcadores reales y dispara la distribución automática del pozo.
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setIsAdminMode(!isAdminMode)}
-          className={`px-4 py-2.5 rounded-lg text-xs font-bold transition border cursor-pointer ${isAdminMode
-            ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
-            : "bg-slate-800 border-white/10 text-slate-400 hover:text-slate-200"
-            }`}
-        >
-          {isAdminMode ? (
-            "Desactivar"
-          ) : (
-            <span className="flex items-center gap-1.5">
-              Activar <Sparkles className="w-3.5 h-3.5" />
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Grid principal */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8 z-10 items-start">
-
-        {/* Columna 1: Partidos */}
-        <section
-          className={`col-span-1 md:col-span-6 lg:col-span-4 space-y-4 ${mobileTab !== 'matches' ? 'hidden md:block' : ''}`}
-          id="section-matches-list"
-        >
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-lg font-extrabold text-slate-200">Partidos del Mundial</h2>
-            <span className="text-[10px] text-slate-500 uppercase">Hora Bolivia (UTC-4)</span>
-          </div>
-
-          <div className="space-y-3 md:max-h-[560px] md:overflow-y-auto pr-1">
-            {matches
-              .filter((match) => isAdminMode || shouldShowMatch(match))
-              .map((match) => {
-                const isSelected = selectedMatch?.id === match.id;
-                const matchRollover = rollovers[match.id]?.rolloverCarriedIn || 0;
-                return (
-                  <div
-                    key={match.id}
-                    onClick={() => { setSelectedMatch(match); setMobileTab('bet'); }}
-                    className={`glass-panel p-4 cursor-pointer relative transition-all ${isSelected
-                      ? "border-emerald-500/50 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                      : "hover:border-white/15"
-                      }`}
-                  >
-                    <div className="flex justify-between items-center mb-3 text-xs">
-                      <span className="text-slate-500 font-semibold">{match.group_stage}</span>
-                      <MatchStatusBadge match={match} />
-                    </div>
-
-                    <div className="flex items-center justify-between px-2 py-1">
-                      <div className="flex items-center gap-2 w-5/12">
-                        <span className="flex shrink-0">{getFlag(match.team_a)}</span>
-                        <span className="font-bold text-sm text-slate-200 truncate">{match.team_a}</span>
-                      </div>
-
-                      <div className="flex items-center justify-center gap-1.5 w-2/12">
-                        {match.score_a !== null ? (
-                          <span className="text-base font-black text-slate-100 bg-slate-950/60 px-2.5 py-0.5 rounded border border-white/5">
-                            {match.score_a} - {match.score_b}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">VS</span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 w-5/12 justify-end text-right">
-                        <span className="font-bold text-sm text-slate-200 truncate">{match.team_b}</span>
-                        <span className="flex shrink-0">{getFlag(match.team_b)}</span>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 pt-2.5 border-t border-white/5 text-[11px] text-slate-500 flex justify-between items-center">
-                      <span suppressHydrationWarning>{formatToBoliviaTime(match.kickoff_time)}</span>
-                      {matchRollover > 0 && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-full">
-                          <Coins className="w-2.5 h-2.5 shrink-0" />
-                          +{matchRollover.toFixed(0)} Bs. acumulado
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </section>
-
-        {/* Columna 2: Apostar + Simulador */}
-        <section
-          className={`col-span-1 md:col-span-6 lg:col-span-4 space-y-6 ${mobileTab !== 'bet' ? 'hidden md:block' : ''}`}
-        >
-          {selectedMatch ? (
-            <>
-              {/* Mobile: back button to match list */}
-              <button
-                className="md:hidden flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition mb-4 cursor-pointer"
-                onClick={() => setMobileTab('matches')}
-              >
-                <ArrowRight className="w-3.5 h-3.5 rotate-180 text-emerald-400" /> Ver todos los partidos
-              </button>
-              {/* Panel: Pozo del Partido */}
-              <div className="glass-panel p-4 flex items-center justify-between bg-gradient-to-r from-emerald-950/30 to-transparent border-emerald-500/20">
+        {/* Immersive Cinema Mode Player */}
+        {showStream && (
+          <div className="glass-panel p-4 md:p-6 mb-8 z-10 border-emerald-500/30 bg-gradient-to-b from-slate-900/60 to-slate-950/80 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                </span>
                 <div>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                    Pozo del Partido
-                  </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {selectedMatch.team_a} vs {selectedMatch.team_b}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-2xl font-black text-emerald-400">
-                    {matchTotalPool.toFixed(0)}
-                  </span>
-                  <span className="text-xs text-slate-400 ml-1">Bs.</span>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    {matchBets.length} apostador{matchBets.length !== 1 ? "es" : ""}
+                  <h2 className="text-base font-extrabold text-slate-100 flex items-center gap-2">
+                    <Tv className="w-5 h-5 text-emerald-400" /> Transmisión Oficial en Vivo
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Copa Mundial 2026 &bull; Señal Directa
                   </p>
                 </div>
               </div>
 
-              {/* Transmisión en Vivo */}
-              <div className="glass-panel p-4 flex items-center justify-between border-emerald-500/20 bg-gradient-to-r from-emerald-950/20 to-transparent">
-                <div className="flex items-center gap-2.5">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                  </span>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-200">Ver Transmisión en Vivo</h4>
-                    <p className="text-[10px] text-slate-400">Señal principal en la parte superior</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    const nextVal = !showStream;
-                    setShowStream(nextVal);
-                    if (nextVal) {
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-                  }}
-                  className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition cursor-pointer ${
-                    showStream
-                      ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
-                      : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                  }`}
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href="https://tvtvhd.com/tv/canales.php?stream=dsports"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-3.5 py-2 rounded-lg border border-amber-500/25 transition cursor-pointer flex items-center gap-1.5"
                 >
-                  {showStream ? "Apagar" : "Encender"}
+                  Abrir en Ventana Externa ↗
+                </a>
+                <button
+                  onClick={() => setShowStream(false)}
+                  className="text-xs font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 px-3.5 py-2 rounded-lg border border-white/5 transition cursor-pointer"
+                >
+                  Ocultar
                 </button>
               </div>
-
-              {/* Formulario de Apuesta */}
-              <div className="glass-panel p-6 relative overflow-hidden" id="bet-form-panel">
-                <div className="shimmer-effect absolute inset-0 pointer-events-none" />
-                <h2 className="text-lg font-extrabold text-slate-200 mb-4 flex items-center gap-2">
-                  <PlusCircle className="w-5 h-5 text-emerald-400" /> Registrar Apuesta
-                </h2>
-
-                {isMatchStarted && (
-                  <div className="mb-4 p-3 rounded-xl bg-slate-800/60 border border-white/10 text-slate-400 text-xs text-center">
-                    {selectedMatch.status === "finished"
-                      ? "Este partido ya finalizó. No se aceptan más apuestas."
-                      : "Este partido ya comenzó. No se aceptan más apuestas o modificaciones."}
-                  </div>
-                )}
-
-                {alreadyBet && (
-                  <div className={`mb-4 p-3.5 rounded-xl text-xs flex items-center gap-2 border ${isEditable
-                    ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
-                    : "bg-amber-500/10 border-amber-500/25 text-amber-400"
-                    }`}>
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>
-                      <strong>{participantName.trim()}</strong> ya tiene una apuesta registrada en este partido.
-                      {isEditable && " Puedes modificar tu pronóstico o monto abajo antes de empezar."}
-                    </span>
-                  </div>
-                )}
-
-                {/* Resultado y ganancias del participante si la apuesta ya fue resuelta */}
-                {myResolvedBet && (
-                  <div className={`mb-4 rounded-xl border overflow-hidden ${myResolvedBet.result_status === "exact"
-                    ? "border-amber-500/30 bg-amber-500/5"
-                    : myResolvedBet.result_status === "outcome"
-                      ? "border-emerald-500/25 bg-emerald-500/5"
-                      : "border-rose-500/15 bg-rose-500/5"
-                    }`}>
-                    <div className="px-4 py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {myResolvedBet.result_status === "exact" && (
-                          <Star className="w-4 h-4 text-amber-400 shrink-0" />
-                        )}
-                        {myResolvedBet.result_status === "outcome" && (
-                          <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
-                        )}
-                        {myResolvedBet.result_status === "fail" && (
-                          <AlertCircle className="w-4 h-4 text-rose-400/70 shrink-0" />
-                        )}
-                        <div>
-                          <p className={`text-xs font-bold ${myResolvedBet.result_status === "exact" ? "text-amber-400"
-                            : myResolvedBet.result_status === "outcome" ? "text-emerald-400"
-                              : "text-rose-400/70"
-                            }`}>
-                            {myResolvedBet.result_status === "exact" && "¡Marcador exacto! +3 puntos"}
-                            {myResolvedBet.result_status === "outcome" && "Ganador del partido +1 punto"}
-                            {myResolvedBet.result_status === "fail" && "Pronóstico fallido · 0 puntos"}
-                          </p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">
-                            Tu pronóstico: {myResolvedBet.predicted_score_a} – {myResolvedBet.predicted_score_b}
-                          </p>
-                        </div>
-                      </div>
-                      {Number(myResolvedBet.prize_won) > 0 && (
-                        <div className="text-right">
-                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Ganaste</p>
-                          <p className="text-xl font-black text-amber-400">
-                            +{Number(myResolvedBet.prize_won).toFixed(0)}
-                            <span className="text-xs font-normal text-slate-400 ml-1">Bs.</span>
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <form onSubmit={handlePlaceBet} className="space-y-4">
-                  {/* Partido seleccionado */}
-                  <div className="bg-slate-950/40 rounded-xl p-3.5 border border-white/5 flex flex-col items-center">
-                    <div className="text-[10px] text-slate-500 font-semibold mb-2">PARTIDO SELECCIONADO</div>
-                    <div className="flex items-center gap-3 justify-center w-full">
-                      <span className="flex shrink-0">{getFlag(selectedMatch.team_a)}</span>
-                      <span className="text-sm font-bold text-slate-200 truncate max-w-[80px]">
-                        {selectedMatch.team_a}
-                      </span>
-                      <span className="text-xs font-black text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
-                        VS
-                      </span>
-                      <span className="text-sm font-bold text-slate-200 truncate max-w-[80px]">
-                        {selectedMatch.team_b}
-                      </span>
-                      <span className="flex shrink-0">{getFlag(selectedMatch.team_b)}</span>
-                    </div>
-                  </div>
-
-                  {/* Nombre */}
-                  <div className="flex flex-col gap-1.5">
-                    {hasSavedName ? (
-                      <>
-                        <label htmlFor="participant-name-input" className="text-xs font-semibold text-slate-300">
-                          Tu Nombre / Apodo (Registrado)
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            id="participant-name-input"
-                            type="text"
-                            value={participantName}
-                            disabled={true}
-                            className="glass-input text-sm bg-slate-950/40 text-emerald-400 font-bold border-emerald-500/20 cursor-not-allowed flex-1"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              localStorage.removeItem("polla_participant_name");
-                              setParticipantName("");
-                              setHasSavedName(false);
-                              if (existingParticipants.length > 0) {
-                                setNameSource("select");
-                              } else {
-                                setNameSource("custom");
-                              }
-                            }}
-                            className="text-[10px] text-rose-400 hover:text-rose-300 transition px-2.5 py-2 rounded bg-rose-500/10 border border-rose-500/20 cursor-pointer font-bold animate-pulse"
-                          >
-                            Cambiar
-                          </button>
-                        </div>
-                      </>
-                    ) : nameSource === "select" ? (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <label htmlFor="participant-name-select" className="text-xs font-semibold text-slate-300">
-                            Selecciona tu Nombre / Apodo
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNameSource("custom");
-                              setParticipantName("");
-                            }}
-                            className="text-[10px] text-amber-400 hover:text-amber-300 transition font-semibold cursor-pointer"
-                          >
-                            Crear Nuevo Apodo
-                          </button>
-                        </div>
-                        <select
-                          id="participant-name-select"
-                          value={participantName}
-                          onChange={(e) => setParticipantName(e.target.value)}
-                          disabled={isPendingBet || !isEditable}
-                          className="glass-input text-sm font-semibold text-slate-200"
-                        >
-                          <option value="">-- Selecciona tu nombre --</option>
-                          {existingParticipants.map((name) => (
-                            <option key={name} value={name}>
-                              {name}
-                            </option>
-                          ))}
-                        </select>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <label htmlFor="participant-name-input" className="text-xs font-semibold text-slate-300">
-                            Tu Nombre / Apodo
-                          </label>
-                          {existingParticipants.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setNameSource("select");
-                                setParticipantName("");
-                              }}
-                              className="text-[10px] text-amber-400 hover:text-amber-300 transition font-semibold cursor-pointer"
-                            >
-                              Seleccionar Registrado
-                            </button>
-                          )}
-                        </div>
-                        <input
-                          id="participant-name-input"
-                          type="text"
-                          placeholder="Ej. Juan, Crack99"
-                          value={participantName}
-                          onChange={(e) => setParticipantName(e.target.value)}
-                          disabled={isPendingBet || !isEditable}
-                          className="glass-input text-sm"
-                        />
-                      </>
-                    )}
-                  </div>
-
-                  {/* Pronóstico */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Pronóstico del Marcador</label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex flex-col items-center gap-1 bg-slate-900/30 p-2.5 rounded-lg border border-white/5">
-                        <label htmlFor="pred-score-a" className="text-[10px] text-slate-500 truncate max-w-full">
-                          Goles {selectedMatch.team_a}
-                        </label>
-                        <input
-                          id="pred-score-a"
-                          type="number"
-                          min="0"
-                          value={predScoreA}
-                          onChange={(e) => setPredScoreA(e.target.value)}
-                          disabled={isPendingBet || !isEditable}
-                          className="glass-input text-center text-lg font-bold w-full p-2"
-                        />
-                      </div>
-                      <div className="flex flex-col items-center gap-1 bg-slate-900/30 p-2.5 rounded-lg border border-white/5">
-                        <label htmlFor="pred-score-b" className="text-[10px] text-slate-500 truncate max-w-full">
-                          Goles {selectedMatch.team_b}
-                        </label>
-                        <input
-                          id="pred-score-b"
-                          type="number"
-                          min="0"
-                          value={predScoreB}
-                          onChange={(e) => setPredScoreB(e.target.value)}
-                          disabled={isPendingBet || !isEditable}
-                          className="glass-input text-center text-lg font-bold w-full p-2"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Monto */}
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor="bet-amount-input" className="text-xs font-semibold text-slate-300">
-                      Monto de Apuesta (Bs.)
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xs select-none pointer-events-none">
-                        Bs.
-                      </span>
-                      <input
-                        id="bet-amount-input"
-                        type="number"
-                        min="1"
-                        step="1"
-                        placeholder="10"
-                        value={betAmount}
-                        onChange={(e) => setBetAmount(e.target.value)}
-                        disabled={isPendingBet || !isEditable}
-                        className="glass-input-prefix text-sm font-semibold"
-                      />
-                    </div>
-                  </div>
-
-                  {betError && (
-                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>{betError}</span>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={
-                      isPendingBet ||
-                      !isEditable
-                    }
-                    className="btn-green w-full mt-4 cursor-pointer text-sm py-3.5 flex items-center justify-center gap-2 disabled:opacity-50"
-                    id="btn-bet-submit"
-                  >
-                    {isPendingBet ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Procesando...
-                      </>
-                    ) : alreadyBet ? (
-                      "Actualizar Apuesta"
-                    ) : (
-                      "Registrar Apuesta"
-                    )}
-                  </button>
-                </form>
-              </div>
-
-            </>
-          ) : (
-            <div className="glass-panel p-6 text-center py-12 flex flex-col items-center justify-center space-y-3">
-              <Ticket className="w-10 h-10 text-slate-500 animate-pulse" />
-              <p className="text-slate-400 text-sm font-semibold">
-                Ningún partido seleccionado
-              </p>
-              <p className="text-slate-500 text-xs max-w-xs mx-auto">
-                Selecciona un partido de la lista para registrar tu pronóstico o ver los detalles de las apuestas.
-              </p>
-              <button
-                className="md:hidden btn-green text-xs px-4 py-2 cursor-pointer mt-2"
-                onClick={() => setMobileTab('matches')}
-              >
-                Ver partidos
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Columna 3: Clasificación */}
-        <section
-          className={`col-span-1 md:col-span-12 lg:col-span-4 space-y-4 ${mobileTab !== 'leaderboard' ? 'hidden md:block' : ''}`}
-          id="section-leaderboard"
-        >
-          <h2 className="text-lg font-extrabold text-slate-200 px-1">Clasificación</h2>
-          <div className="glass-panel p-5 overflow-hidden">
-            {/* Leyenda de puntos */}
-            <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-white/5">
-              <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-full">
-                <Star className="w-2.5 h-2.5" /> Exacto = 3 pts
-              </span>
-              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-full">
-                <TrendingUp className="w-2.5 h-2.5" /> Ganador = 1 pt
-              </span>
-              <span className="inline-flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/10 border border-rose-500/10 px-2 py-1 rounded-full">
-                Perdedor = 0 pts
-              </span>
             </div>
 
-            {leaderboard.length === 0 ? (
-              <div className="text-center py-8 text-slate-500 text-sm">
-                Sin apuestas registradas. ¡Sé el primero!
-              </div>
+            <div className="relative w-full max-w-5xl mx-auto aspect-video rounded-2xl overflow-hidden border border-emerald-500/20 bg-black shadow-[0_0_30px_rgba(16,185,129,0.1)]">
+              <iframe
+                src="https://tvtvhd.com/tv/canales.php?stream=dsports"
+                className="w-full h-full absolute inset-0"
+                allowFullScreen
+                allow="encrypted-media; autoplay"
+                title="Transmisión Oficial en Vivo"
+              ></iframe>
+            </div>
+
+            <div className="mt-4 text-center">
+              <p className="text-[11px] text-slate-500">
+                ⚠️ Nota: Si el video no se visualiza debido a restricciones de privacidad del navegador, usa el botón <strong>"Abrir en Ventana Externa"</strong>.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Stats rápidas */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 z-10">
+          <div className="glass-panel p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Pozo Total</p>
+              <h3 className="text-2xl font-black text-emerald-400 mt-1">
+                {totalPool.toFixed(0)} <span className="text-xs font-normal text-slate-400">Bs.</span>
+              </h3>
+            </div>
+            <span className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20 text-emerald-400">
+              <Coins className="w-5 h-5" />
+            </span>
+          </div>
+
+          <div className="glass-panel p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Apuestas</p>
+              <h3 className="text-2xl font-black text-amber-400 mt-1">{totalBets}</h3>
+            </div>
+            <span className="bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20 text-amber-400">
+              <Ticket className="w-5 h-5" />
+            </span>
+          </div>
+
+          <div className="glass-panel p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Líder</p>
+              <h3 className="text-sm font-bold text-slate-100 truncate max-w-[110px] mt-1 flex items-center gap-1">
+                <Medal className="w-3.5 h-3.5 text-amber-400 shrink-0" /> {currentLeader}
+              </h3>
+            </div>
+            <span className="bg-blue-500/10 p-2.5 rounded-xl border border-blue-500/20 text-amber-400">
+              <Trophy className="w-5 h-5" />
+            </span>
+          </div>
+        </div>
+
+        {/* Simulador toggle */}
+        <div className="glass-panel p-4 mb-8 z-10 flex items-center justify-between border-dashed border-emerald-500/30">
+          <div className="flex items-center gap-3">
+            <Wrench className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <h4 className="text-sm font-bold text-slate-200">Simulador de Resultados</h4>
+              <p className="text-xs text-slate-400">
+                Actualiza marcadores reales y dispara la distribución automática del pozo.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsAdminMode(!isAdminMode)}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold transition border cursor-pointer ${isAdminMode
+              ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
+              : "bg-slate-800 border-white/10 text-slate-400 hover:text-slate-200"
+              }`}
+          >
+            {isAdminMode ? (
+              "Desactivar"
             ) : (
-              <div className="space-y-3 md:max-h-[480px] md:overflow-y-auto pr-1">
-                {leaderboard.map((user, index) => {
-                  const isTop = index === 0;
-                  const isSecond = index === 1;
-                  const isThird = index === 2;
+              <span className="flex items-center gap-1.5">
+                Activar <Sparkles className="w-3.5 h-3.5" />
+              </span>
+            )}
+          </button>
+        </div>
 
+        {/* Grid principal */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8 z-10 items-start">
+
+          {/* Columna 1: Partidos */}
+          <section
+            className={`col-span-1 md:col-span-6 lg:col-span-4 space-y-4 ${mobileTab !== 'matches' ? 'hidden md:block' : ''}`}
+            id="section-matches-list"
+          >
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-lg font-extrabold text-slate-200">Partidos del Mundial</h2>
+              <span className="text-[10px] text-slate-500 uppercase">Hora Bolivia (UTC-4)</span>
+            </div>
+
+            <div className="space-y-3 md:max-h-[560px] md:overflow-y-auto pr-1">
+              {matches
+                .filter((match) => isAdminMode || shouldShowMatch(match))
+                .map((match) => {
+                  const isSelected = selectedMatch?.id === match.id;
+                  const matchRollover = rollovers[match.id]?.rolloverCarriedIn || 0;
                   return (
                     <div
-                      key={user.name}
-                      className="flex items-center justify-between p-3 rounded-xl bg-slate-950/30 border border-white/5"
+                      key={match.id}
+                      onClick={() => { setSelectedMatch(match); setMobileTab('bet'); }}
+                      className={`glass-panel p-4 cursor-pointer relative transition-all ${isSelected
+                        ? "border-emerald-500/50 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                        : "hover:border-white/15"
+                        }`}
                     >
-                      <div className="flex items-center gap-3 w-7/12">
-                        <div
-                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border shrink-0 ${isTop
-                            ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                            : isSecond
-                              ? "bg-slate-300/10 text-slate-300 border-slate-300/20"
-                              : isThird
-                                ? "bg-amber-700/10 text-amber-600 border-amber-700/20"
-                                : "bg-slate-900 text-slate-400 border-white/5"
-                            }`}
-                        >
-                          {index + 1}
+                      <div className="flex justify-between items-center mb-3 text-xs">
+                        <span className="text-slate-500 font-semibold">{match.group_stage}</span>
+                        <MatchStatusBadge match={match} />
+                      </div>
+
+                      <div className="flex items-center justify-between px-2 py-1">
+                        <div className="flex items-center gap-2 w-5/12">
+                          <span className="flex shrink-0">{getFlag(match.team_a)}</span>
+                          <span className="font-bold text-sm text-slate-200 truncate">{match.team_a}</span>
                         </div>
-                        <div className="truncate min-w-0">
-                          <p className="font-bold text-sm text-slate-200 truncate">{user.name}</p>
-                          <p className="text-[10px] text-slate-500">
-                            {user.wins}G / {user.losses}P &bull; apostado: {user.totalAmount.toFixed(0)} Bs.
-                          </p>
+
+                        <div className="flex items-center justify-center gap-1.5 w-2/12">
+                          {match.score_a !== null ? (
+                            <span className="text-base font-black text-slate-100 bg-slate-950/60 px-2.5 py-0.5 rounded border border-white/5">
+                              {match.score_a} - {match.score_b}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">VS</span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 w-5/12 justify-end text-right">
+                          <span className="font-bold text-sm text-slate-200 truncate">{match.team_b}</span>
+                          <span className="flex shrink-0">{getFlag(match.team_b)}</span>
                         </div>
                       </div>
 
-                      <div className="text-right w-5/12 flex flex-col items-end gap-1">
-                        {/* Pts siempre visible */}
-                        <span className={`text-sm font-black px-2.5 py-1 rounded-lg border ${user.points > 0
-                          ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-                          : "text-slate-500 bg-slate-800/40 border-white/5"
-                          }`}>
-                          {user.points} pts
-                        </span>
-                        {/* Ganancias: siempre visible */}
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${user.prizeWon > 0
-                          ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
-                          : "text-slate-600 bg-slate-800/20 border-white/5"
-                          }`}>
-                          {user.prizeWon > 0 ? `+${user.prizeWon.toFixed(0)} Bs.` : "0 Bs."}
-                        </span>
+                      <div className="mt-3 pt-2.5 border-t border-white/5 text-[11px] text-slate-500 flex justify-between items-center">
+                        <span suppressHydrationWarning>{formatToBoliviaTime(match.kickoff_time)}</span>
+                        {matchRollover > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded-full">
+                            <Coins className="w-2.5 h-2.5 shrink-0" />
+                            +{matchRollover.toFixed(0)} Bs. acumulado
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
                 })}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
+            </div>
+          </section>
 
-      {/* Historial de Apuestas */}
-      <section
-        className={`glass-panel p-6 z-10 overflow-hidden ${mobileTab !== 'history' ? 'hidden md:block' : ''}`}
-        id="section-bets-history"
-      >
-        <h2 className="text-lg font-extrabold text-slate-200 mb-6 flex items-center gap-2">
-          <ClipboardList className="w-5 h-5 text-emerald-400" /> Historial de Apuestas
-        </h2>
-
-        {sortedMatchIds.length === 0 ? (
-          <div className="text-center py-12 text-slate-500 text-sm">
-            No se han registrado apuestas en este grupo todavía.
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {sortedMatchIds.map((matchId) => {
-              const matchBetsList = betsByMatch[matchId];
-              const matchData = matches.find((m) => m.id === matchId);
-              if (!matchData) return null;
-
-              return (
-                <div key={matchId} className="bg-slate-950/20 border border-white/5 rounded-xl overflow-hidden">
-                  {/* Cabecera del Partido */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/40 px-4 py-3 border-b border-white/5">
-                    <div className="flex items-center gap-2 text-xs md:text-sm font-semibold">
-                      <span className="flex shrink-0">{getFlag(matchData.team_a)}</span>
-                      <span className="text-slate-200">{matchData.team_a}</span>
-                      <span className="text-slate-500">vs</span>
-                      <span className="text-slate-200">{matchData.team_b}</span>
-                      <span className="flex shrink-0">{getFlag(matchData.team_b)}</span>
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-mono" suppressHydrationWarning>
-                      {formatToBoliviaTime(matchData.kickoff_time)}
-                    </div>
+          {/* Columna 2: Apostar + Simulador */}
+          <section
+            className={`col-span-1 md:col-span-6 lg:col-span-4 space-y-6 ${mobileTab !== 'bet' ? 'hidden md:block' : ''}`}
+          >
+            {selectedMatch ? (
+              <>
+                {/* Mobile: back button to match list */}
+                <button
+                  className="md:hidden flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition mb-4 cursor-pointer"
+                  onClick={() => setMobileTab('matches')}
+                >
+                  <ArrowRight className="w-3.5 h-3.5 rotate-180 text-emerald-400" /> Ver todos los partidos
+                </button>
+                {/* Panel: Pozo del Partido */}
+                <div className="glass-panel p-4 flex items-center justify-between bg-gradient-to-r from-emerald-950/30 to-transparent border-emerald-500/20">
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                      Pozo del Partido
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {selectedMatch.team_a} vs {selectedMatch.team_b}
+                    </p>
                   </div>
-
-                  {/* Tabla de Apuestas para este partido */}
-                  <div className="overflow-x-auto">
-                    <table className="custom-table w-full">
-                      <thead>
-                        <tr>
-                          <th>Participante</th>
-                          <th>Pronóstico</th>
-                          <th>Apostado</th>
-                          <th>Premio</th>
-                          <th>Resultado</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {matchBetsList.map((bet) => {
-                          const ev = evaluateBetDisplay(bet);
-                          const prize = Number(bet.prize_won ?? 0);
-                          return (
-                            <tr key={bet.id}>
-                              <td className="font-bold text-slate-200">{bet.participant_name}</td>
-                              <td className="font-mono text-slate-200 text-sm font-semibold">
-                                {bet.predicted_score_a} - {bet.predicted_score_b}
-                              </td>
-                              <td className="text-slate-300 font-semibold text-sm">
-                                {Number(bet.amount).toFixed(0)} Bs.
-                              </td>
-                              <td className={`font-black text-sm ${prize > 0 ? "text-emerald-400" : "text-slate-600"}`}>
-                                {prize > 0 ? `+${prize.toFixed(0)} Bs.` : "—"}
-                              </td>
-                              <td>
-                                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs border font-medium ${ev.badgeClass}`}>
-                                  {ev.label}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="text-right">
+                    <span className="text-2xl font-black text-emerald-400">
+                      {matchTotalPool.toFixed(0)}
+                    </span>
+                    <span className="text-xs text-slate-400 ml-1">Bs.</span>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {matchBets.length} apostador{matchBets.length !== 1 ? "es" : ""}
+                    </p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
 
-      {/* Footer */}
+                {/* Transmisión en Vivo */}
+                <div className="glass-panel p-4 flex items-center justify-between border-emerald-500/20 bg-gradient-to-r from-emerald-950/20 to-transparent">
+                  <div className="flex items-center gap-2.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200">Ver Transmisión en Vivo</h4>
+                      <p className="text-[10px] text-slate-400">Señal principal en la parte superior</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const nextVal = !showStream;
+                      setShowStream(nextVal);
+                      if (nextVal) {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }
+                    }}
+                    className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition cursor-pointer ${showStream
+                      ? "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                      : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                      }`}
+                  >
+                    {showStream ? "Apagar" : "Encender"}
+                  </button>
+                </div>
+
+                {/* Formulario de Apuesta */}
+                <div className="glass-panel p-6 relative overflow-hidden" id="bet-form-panel">
+                  <div className="shimmer-effect absolute inset-0 pointer-events-none" />
+                  <h2 className="text-lg font-extrabold text-slate-200 mb-4 flex items-center gap-2">
+                    <PlusCircle className="w-5 h-5 text-emerald-400" /> Registrar Apuesta
+                  </h2>
+
+                  {isMatchStarted && (
+                    <div className="mb-4 p-3 rounded-xl bg-slate-800/60 border border-white/10 text-slate-400 text-xs text-center">
+                      {selectedMatch.status === "finished"
+                        ? "Este partido ya finalizó. No se aceptan más apuestas."
+                        : "Este partido ya comenzó. No se aceptan más apuestas o modificaciones."}
+                    </div>
+                  )}
+
+                  {alreadyBet && (
+                    <div className={`mb-4 p-3.5 rounded-xl text-xs flex items-center gap-2 border ${isEditable
+                      ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
+                      : "bg-amber-500/10 border-amber-500/25 text-amber-400"
+                      }`}>
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span>
+                        <strong>{participantName.trim()}</strong> ya tiene una apuesta registrada en este partido.
+                        {isEditable && " Puedes modificar tu pronóstico o monto abajo antes de empezar."}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Resultado y ganancias del participante si la apuesta ya fue resuelta */}
+                  {myResolvedBet && (
+                    <div className={`mb-4 rounded-xl border overflow-hidden ${myResolvedBet.result_status === "exact"
+                      ? "border-amber-500/30 bg-amber-500/5"
+                      : myResolvedBet.result_status === "outcome"
+                        ? "border-emerald-500/25 bg-emerald-500/5"
+                        : "border-rose-500/15 bg-rose-500/5"
+                      }`}>
+                      <div className="px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {myResolvedBet.result_status === "exact" && (
+                            <Star className="w-4 h-4 text-amber-400 shrink-0" />
+                          )}
+                          {myResolvedBet.result_status === "outcome" && (
+                            <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
+                          )}
+                          {myResolvedBet.result_status === "fail" && (
+                            <AlertCircle className="w-4 h-4 text-rose-400/70 shrink-0" />
+                          )}
+                          <div>
+                            <p className={`text-xs font-bold ${myResolvedBet.result_status === "exact" ? "text-amber-400"
+                              : myResolvedBet.result_status === "outcome" ? "text-emerald-400"
+                                : "text-rose-400/70"
+                              }`}>
+                              {myResolvedBet.result_status === "exact" && "¡Marcador exacto! +3 puntos"}
+                              {myResolvedBet.result_status === "outcome" && "Ganador del partido +1 punto"}
+                              {myResolvedBet.result_status === "fail" && "Pronóstico fallido · 0 puntos"}
+                            </p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">
+                              Tu pronóstico: {myResolvedBet.predicted_score_a} – {myResolvedBet.predicted_score_b}
+                            </p>
+                          </div>
+                        </div>
+                        {Number(myResolvedBet.prize_won) > 0 && (
+                          <div className="text-right">
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Ganaste</p>
+                            <p className="text-xl font-black text-amber-400">
+                              +{Number(myResolvedBet.prize_won).toFixed(0)}
+                              <span className="text-xs font-normal text-slate-400 ml-1">Bs.</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <form onSubmit={handlePlaceBet} className="space-y-4">
+                    {/* Partido seleccionado */}
+                    <div className="bg-slate-950/40 rounded-xl p-3.5 border border-white/5 flex flex-col items-center">
+                      <div className="text-[10px] text-slate-500 font-semibold mb-2">PARTIDO SELECCIONADO</div>
+                      <div className="flex items-center gap-3 justify-center w-full">
+                        <span className="flex shrink-0">{getFlag(selectedMatch.team_a)}</span>
+                        <span className="text-sm font-bold text-slate-200 truncate max-w-[80px]">
+                          {selectedMatch.team_a}
+                        </span>
+                        <span className="text-xs font-black text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
+                          VS
+                        </span>
+                        <span className="text-sm font-bold text-slate-200 truncate max-w-[80px]">
+                          {selectedMatch.team_b}
+                        </span>
+                        <span className="flex shrink-0">{getFlag(selectedMatch.team_b)}</span>
+                      </div>
+                    </div>
+
+                    {/* Nombre */}
+                    <div className="flex flex-col gap-1.5">
+                      {hasSavedName ? (
+                        <>
+                          <label htmlFor="participant-name-input" className="text-xs font-semibold text-slate-300">
+                            Tu Nombre / Apodo (Registrado)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              id="participant-name-input"
+                              type="text"
+                              value={participantName}
+                              disabled={true}
+                              className="glass-input text-sm bg-slate-950/40 text-emerald-400 font-bold border-emerald-500/20 cursor-not-allowed flex-1"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                localStorage.removeItem("polla_participant_name");
+                                setParticipantName("");
+                                setHasSavedName(false);
+                                if (existingParticipants.length > 0) {
+                                  setNameSource("select");
+                                } else {
+                                  setNameSource("custom");
+                                }
+                              }}
+                              className="text-[10px] text-rose-400 hover:text-rose-300 transition px-2.5 py-2 rounded bg-rose-500/10 border border-rose-500/20 cursor-pointer font-bold animate-pulse"
+                            >
+                              Cambiar
+                            </button>
+                          </div>
+                        </>
+                      ) : nameSource === "select" ? (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <label htmlFor="participant-name-select" className="text-xs font-semibold text-slate-300">
+                              Selecciona tu Nombre / Apodo
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNameSource("custom");
+                                setParticipantName("");
+                              }}
+                              className="text-[10px] text-amber-400 hover:text-amber-300 transition font-semibold cursor-pointer"
+                            >
+                              Crear Nuevo Apodo
+                            </button>
+                          </div>
+                          <select
+                            id="participant-name-select"
+                            value={participantName}
+                            onChange={(e) => setParticipantName(e.target.value)}
+                            disabled={isPendingBet || !isEditable}
+                            className="glass-input text-sm font-semibold text-slate-200"
+                          >
+                            <option value="">-- Selecciona tu nombre --</option>
+                            {existingParticipants.map((name) => (
+                              <option key={name} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                          </select>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <label htmlFor="participant-name-input" className="text-xs font-semibold text-slate-300">
+                              Tu Nombre / Apodo
+                            </label>
+                            {existingParticipants.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNameSource("select");
+                                  setParticipantName("");
+                                }}
+                                className="text-[10px] text-amber-400 hover:text-amber-300 transition font-semibold cursor-pointer"
+                              >
+                                Seleccionar Registrado
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            id="participant-name-input"
+                            type="text"
+                            placeholder="Ej. Juan, Crack99"
+                            value={participantName}
+                            onChange={(e) => setParticipantName(e.target.value)}
+                            disabled={isPendingBet || !isEditable}
+                            className="glass-input text-sm"
+                          />
+                        </>
+                      )}
+                    </div>
+
+                    {/* Pronóstico */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Pronóstico del Marcador</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col items-center gap-1 bg-slate-900/30 p-2.5 rounded-lg border border-white/5">
+                          <label htmlFor="pred-score-a" className="text-[10px] text-slate-500 truncate max-w-full">
+                            Goles {selectedMatch.team_a}
+                          </label>
+                          <input
+                            id="pred-score-a"
+                            type="number"
+                            min="0"
+                            value={predScoreA}
+                            onChange={(e) => setPredScoreA(e.target.value)}
+                            disabled={isPendingBet || !isEditable}
+                            className="glass-input text-center text-lg font-bold w-full p-2"
+                          />
+                        </div>
+                        <div className="flex flex-col items-center gap-1 bg-slate-900/30 p-2.5 rounded-lg border border-white/5">
+                          <label htmlFor="pred-score-b" className="text-[10px] text-slate-500 truncate max-w-full">
+                            Goles {selectedMatch.team_b}
+                          </label>
+                          <input
+                            id="pred-score-b"
+                            type="number"
+                            min="0"
+                            value={predScoreB}
+                            onChange={(e) => setPredScoreB(e.target.value)}
+                            disabled={isPendingBet || !isEditable}
+                            className="glass-input text-center text-lg font-bold w-full p-2"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Monto */}
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="bet-amount-input" className="text-xs font-semibold text-slate-300">
+                        Monto de Apuesta (Bs.)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xs select-none pointer-events-none">
+                          Bs.
+                        </span>
+                        <input
+                          id="bet-amount-input"
+                          type="number"
+                          min="1"
+                          step="1"
+                          placeholder="10"
+                          value={betAmount}
+                          onChange={(e) => setBetAmount(e.target.value)}
+                          disabled={isPendingBet || !isEditable}
+                          className="glass-input-prefix text-sm font-semibold"
+                        />
+                      </div>
+                    </div>
+
+                    {betError && (
+                      <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>{betError}</span>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={
+                        isPendingBet ||
+                        !isEditable
+                      }
+                      className="btn-green w-full mt-4 cursor-pointer text-sm py-3.5 flex items-center justify-center gap-2 disabled:opacity-50"
+                      id="btn-bet-submit"
+                    >
+                      {isPendingBet ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" /> Procesando...
+                        </>
+                      ) : alreadyBet ? (
+                        "Actualizar Apuesta"
+                      ) : (
+                        "Registrar Apuesta"
+                      )}
+                    </button>
+                  </form>
+                </div>
+
+              </>
+            ) : (
+              <div className="glass-panel p-6 text-center py-12 flex flex-col items-center justify-center space-y-3">
+                <Ticket className="w-10 h-10 text-slate-500 animate-pulse" />
+                <p className="text-slate-400 text-sm font-semibold">
+                  Ningún partido seleccionado
+                </p>
+                <p className="text-slate-500 text-xs max-w-xs mx-auto">
+                  Selecciona un partido de la lista para registrar tu pronóstico o ver los detalles de las apuestas.
+                </p>
+                <button
+                  className="md:hidden btn-green text-xs px-4 py-2 cursor-pointer mt-2"
+                  onClick={() => setMobileTab('matches')}
+                >
+                  Ver partidos
+                </button>
+              </div>
+            )}
+          </section>
+
+          {/* Columna 3: Clasificación */}
+          <section
+            className={`col-span-1 md:col-span-12 lg:col-span-4 space-y-4 ${mobileTab !== 'leaderboard' ? 'hidden md:block' : ''}`}
+            id="section-leaderboard"
+          >
+            <h2 className="text-lg font-extrabold text-slate-200 px-1">Clasificación</h2>
+            <div className="glass-panel p-5 overflow-hidden">
+              {/* Leyenda de puntos */}
+              <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-white/5">
+                <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-full">
+                  <Star className="w-2.5 h-2.5" /> Exacto = 3 pts
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-full">
+                  <TrendingUp className="w-2.5 h-2.5" /> Ganador = 1 pt
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/10 border border-rose-500/10 px-2 py-1 rounded-full">
+                  Perdedor = 0 pts
+                </span>
+              </div>
+
+              {leaderboard.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-sm">
+                  Sin apuestas registradas. ¡Sé el primero!
+                </div>
+              ) : (
+                <div className="space-y-3 md:max-h-[480px] md:overflow-y-auto pr-1">
+                  {leaderboard.map((user, index) => {
+                    const isTop = index === 0;
+                    const isSecond = index === 1;
+                    const isThird = index === 2;
+
+                    return (
+                      <div
+                        key={user.name}
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-950/30 border border-white/5"
+                      >
+                        <div className="flex items-center gap-3 w-7/12">
+                          <div
+                            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black border shrink-0 ${isTop
+                              ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                              : isSecond
+                                ? "bg-slate-300/10 text-slate-300 border-slate-300/20"
+                                : isThird
+                                  ? "bg-amber-700/10 text-amber-600 border-amber-700/20"
+                                  : "bg-slate-900 text-slate-400 border-white/5"
+                              }`}
+                          >
+                            {index + 1}
+                          </div>
+                          <div className="truncate min-w-0">
+                            <p className="font-bold text-sm text-slate-200 truncate">{user.name}</p>
+                            <p className="text-[10px] text-slate-500">
+                              {user.wins}G / {user.losses}P &bull; apostado: {user.totalAmount.toFixed(0)} Bs.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right w-5/12 flex flex-col items-end gap-1">
+                          {/* Pts siempre visible */}
+                          <span className={`text-sm font-black px-2.5 py-1 rounded-lg border ${user.points > 0
+                            ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                            : "text-slate-500 bg-slate-800/40 border-white/5"
+                            }`}>
+                            {user.points} pts
+                          </span>
+                          {/* Ganancias: siempre visible */}
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${user.prizeWon > 0
+                            ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                            : "text-slate-600 bg-slate-800/20 border-white/5"
+                            }`}>
+                            {user.prizeWon > 0 ? `+${user.prizeWon.toFixed(0)} Bs.` : "0 Bs."}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+
+        {/* Historial de Apuestas */}
+        <section
+          className={`glass-panel p-6 z-10 overflow-hidden ${mobileTab !== 'history' ? 'hidden md:block' : ''}`}
+          id="section-bets-history"
+        >
+          <h2 className="text-lg font-extrabold text-slate-200 mb-6 flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-emerald-400" /> Historial de Apuestas
+          </h2>
+
+          {sortedMatchIds.length === 0 ? (
+            <div className="text-center py-12 text-slate-500 text-sm">
+              No se han registrado apuestas en este grupo todavía.
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {sortedMatchIds.map((matchId) => {
+                const matchBetsList = betsByMatch[matchId];
+                const matchData = matches.find((m) => m.id === matchId);
+                if (!matchData) return null;
+
+                return (
+                  <div key={matchId} className="bg-slate-950/20 border border-white/5 rounded-xl overflow-hidden">
+                    {/* Cabecera del Partido */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/40 px-4 py-3 border-b border-white/5">
+                      <div className="flex items-center gap-2 text-xs md:text-sm font-semibold">
+                        <span className="flex shrink-0">{getFlag(matchData.team_a)}</span>
+                        <span className="text-slate-200">{matchData.team_a}</span>
+                        <span className="text-slate-500">vs</span>
+                        <span className="text-slate-200">{matchData.team_b}</span>
+                        <span className="flex shrink-0">{getFlag(matchData.team_b)}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono" suppressHydrationWarning>
+                        {formatToBoliviaTime(matchData.kickoff_time)}
+                      </div>
+                    </div>
+
+                    {/* Tabla de Apuestas para este partido */}
+                    <div className="overflow-x-auto">
+                      <table className="custom-table w-full">
+                        <thead>
+                          <tr>
+                            <th>Participante</th>
+                            <th>Pronóstico</th>
+                            <th>Apostado</th>
+                            <th>Premio</th>
+                            <th>Resultado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {matchBetsList.map((bet) => {
+                            const ev = evaluateBetDisplay(bet);
+                            const prize = Number(bet.prize_won ?? 0);
+                            return (
+                              <tr key={bet.id}>
+                                <td className="font-bold text-slate-200">{bet.participant_name}</td>
+                                <td className="font-mono text-slate-200 text-sm font-semibold">
+                                  {bet.predicted_score_a} - {bet.predicted_score_b}
+                                </td>
+                                <td className="text-slate-300 font-semibold text-sm">
+                                  {Number(bet.amount).toFixed(0)} Bs.
+                                </td>
+                                <td className={`font-black text-sm ${prize > 0 ? "text-emerald-400" : "text-slate-600"}`}>
+                                  {prize > 0 ? `+${prize.toFixed(0)} Bs.` : "—"}
+                                </td>
+                                <td>
+                                  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs border font-medium ${ev.badgeClass}`}>
+                                    {ev.label}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Footer */}
         <footer className="mt-12 text-center text-xs text-slate-600 py-6 border-t border-white/5">
           <p>Copa Mundial de Fútbol 2026 | Desarrollado con Next.js y Supabase</p>
           <p className="mt-1">Zona Horaria: Bolivia (UTC-4)</p>
